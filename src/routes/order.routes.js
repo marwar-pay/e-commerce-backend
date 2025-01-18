@@ -1,13 +1,15 @@
 import express from "express";
-import { createOrder, getOrders, getOrder, updateOrderStatus, deleteOrder } from "../controller/order.controller.js";
+import { createOrder,getOrdersByReferenceWebsite, getOrdersByUser, getOrder, updateOrderStatus, deleteOrder } from "../controller/order.controller.js";
 import { verifyToken } from "../middleware/verifyToken.js";
+import { isAdmin } from "../middleware/isAdmin.js";
 
 const orderRoutes = express.Router();
 
-orderRoutes.post("/orders", verifyToken, createOrder);         // Create an order
-orderRoutes.get("/orders", verifyToken, getOrders);            // Get all orders
-orderRoutes.get("/orders/:id", verifyToken, getOrder);         // Get a specific order
-orderRoutes.put("/orders/:id/status", verifyToken, updateOrderStatus);  // Update order status
-orderRoutes.delete("/orders/:id", verifyToken, deleteOrder);   // Delete an order
+orderRoutes.post("/order", verifyToken, createOrder);
+orderRoutes.get("/orders", verifyToken, getOrdersByUser);
+orderRoutes.get("/orders/:id", verifyToken, getOrder); 
+orderRoutes.put("/orders/:id/status", isAdmin, updateOrderStatus); 
+orderRoutes.delete("/orders/:id", isAdmin , deleteOrder); 
+orderRoutes.get("/allorders",isAdmin ,getOrdersByReferenceWebsite)
 
 export default orderRoutes;

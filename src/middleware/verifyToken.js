@@ -16,7 +16,6 @@ export const verifyToken = async (req, res, next) => {
     if (err) {
       if (err.name === "TokenExpiredError" && refreshToken) {
         try {
-          // Automatically refresh the access token
           const newAccessToken = User.refreshAccessToken(refreshToken);
           res.setHeader("Authorization", `Bearer ${newAccessToken}`);
           req.user = jwt.verify(newAccessToken, process.env.SECRET_KEY); // Decode the new token

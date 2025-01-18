@@ -1,145 +1,124 @@
 import bcrypt from "bcryptjs";
-import jwt from "jsonwebtoken";
-import { Validator } from "../helper/Validator.js";
-import User from "../models/User.model.js"; // Assuming you're importing the User model
 import dotenv from "dotenv";
+import User from '../models/User.model.js';
+import jwt from 'jsonwebtoken';
 
 dotenv.config({ path: "../.env" });
 
 export const registerUser = async (req, res) => {
   try {
-    // Destructure data from request body
-    const { firstName, lastName, email, password } = req.body;
+    const { firstName, lastName, email, password, referenceWebsite, mobile, address, role } = req.body;
 
-    // Validate input data
-    const validator = new Validator();
-    const { getUser, inputValidation } = validator;
-    const { isInputValid, msg: inputValidationMsg } = inputValidation({
-      firstName,
-      lastName,
-      email,
-      password,
-    });
-
-    if (!isInputValid) {
-      return res.status(400).json({ msg: inputValidationMsg });
+    if (!firstName || !lastName || !email || !password || !referenceWebsite) {
+      return res.status(400).json({ msg: "All fields are required." });
     }
-
-    // Check if the user already exists
-    const { isNewUserEntry, msg } = await getUser(email, { attempt: "signUp" });
-    if (!isNewUserEntry) {
-      return res.status(400).json({ msg });
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({ msg: "This email is already registered. Please login." });
     }
-
-    // Hash the user password
     const hashPassword = await bcrypt.hash(password, 10);
-
-    // Save the user data into the database
     const userData = await User.create({
       firstName,
       lastName,
       email,
       password: hashPassword,
+      referenceWebsite,
+      mobile,
+      address,
+      role: role || 'user'
     });
-
-    // Generate tokens using the schema methods
     const accessToken = userData.createAccessToken();
     const refreshToken = userData.createRefreshToken();
-
-    userData.password = undefined; // Don't send the password back to the client
-
-    // Store the refresh token securely in HTTP-only cookies
+    userData.password = undefined;
     res.cookie("refreshToken", refreshToken, {
       httpOnly: true,
-      secure: true, // Set true in production for HTTPS
+      secure: process.env.NODE_ENV === "production",
       sameSite: "Strict",
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      maxAge: 7 * 24 * 60 * 60 * 1000,
     });
     res.cookie("accessToken", accessToken, {
       httpOnly: true,
-      secure: true, // Set true in production for HTTPS
+      secure: process.env.NODE_ENV === "production",
       sameSite: "Strict",
-      maxAge: 2 * 24 * 60 * 60 * 1000, // 1 hour
+      maxAge: 24 * 60 * 60 * 1000,
     });
-
-    // Respond with the access token
     res.status(200).json({
+      userData,
       accessToken,
       message: "You have successfully registered!",
     });
   } catch (error) {
-    console.error(`Error: ${error.message}`);
+    console.error(error);
     res.status(500).json({ msg: "Registration failed", error: error.message });
   }
 };
 
+
 export const logInUser = async (req, res) => {
   try {
-    // Destructure data from request body
     const { email, password } = req.body;
-
-    // Validate input data
-    const validator = new Validator();
-    const { inputValidation, getUser } = validator;
-    const { isInputValid, msg: inputValidationMessage } = inputValidation({
-      email,
-      password,
-    });
-
-    if (!isInputValid) {
-      return res.status(400).json({ msg: inputValidationMessage });
+    if (!email || !password) {
+      return res.status(400).json({ msg: "Email and password are required." });
     }
-
-    // Check if the user exists
-    const { userData, isNewUserEntry, msg } = await getUser(email, {
-      attempt: "logIn",
-    });
-
-    if (isNewUserEntry) {
-      return res.status(400).json({ msg });
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(400).json({ msg: "No account found with this email. Please sign up." });
     }
-
-    // Compare database password with input password
-    const isPasswordValid = await bcrypt.compare(password, userData.password);
-
+    const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
-      return res.status(400).json({ msg: "Invalid password" });
+      return res.status(400).json({ msg: "Invalid password." });
     }
 
-    const accessToken = userData.createAccessToken();
-    const refreshToken = userData.createRefreshToken();
+    const accessToken = user.createAccessToken();
+    const refreshToken = user.createRefreshToken();
 
-    // Set token options for cookies
-    const options1 = {
+    const cookieOptions = {
       httpOnly: true,
-      secure: true, // Ensure this is true in production (requires HTTPS)
+      secure: process.env.NODE_ENV === 'production',  // Ensure this is true in production (HTTPS required)
       sameSite: "Strict",
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     };
 
-    const options2 = {
-      httpOnly: true,
-      secure: true, // Ensure this is true in production (requires HTTPS)
-      sameSite: "Strict",
-      maxAge: 24 * 60 * 60 * 1000, // 1 day
-    };
+    res.cookie("refreshToken", refreshToken, {
+      ...cookieOptions,
+      maxAge: 7 * 24 * 60 * 60 * 1000,  // 7 days
+    });
 
-    userData.password = undefined; // Don't send the password back to the client
+    res.cookie("accessToken", accessToken, {
+      ...cookieOptions,
+      maxAge: 24 * 60 * 60 * 1000,  // 1 day
+    });
 
-    return res
-      .status(200)
-      .cookie("refreshToken", refreshToken, options1)
-      .cookie("accessToken", accessToken, options2)
-      .json({
-        userData,
-        msg: "You have logged in successfully",
-        accessToken,
-      });
+    user.password = undefined;
+
+    return res.status(200).json({
+      userData: user,
+      msg: "You have logged in successfully",
+      accessToken,
+      refreshToken
+    });
   } catch (error) {
     console.error(`Error: ${error.message}`);
     res.status(500).json({ msg: "Login failed", error: error.message });
   }
 };
+
+export const getUserDetails = async (req, res) => {
+  try {
+    const user = req.user;
+    if (!user) {
+      return res.status(404).json({ msg: "User details not found." });
+    }
+    const userDetail = await User.findById(user.id);
+    res.status(200).json({
+      user:userDetail,
+      msg: "User details fetched successfully.",
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ msg: "Failed to fetch user details.", error: error.message });
+  }
+};
+
 
 export const logoutUser = (req, res) => {
   res.clearCookie("accessToken", {
@@ -155,4 +134,22 @@ export const logoutUser = (req, res) => {
   });
 
   res.status(200).json({ message: "You have successfully logged out!" });
+};
+
+
+export const getAllUsers = async (req, res) => {
+  try {
+    const { referenceWebsite } = req.query; // Get the referenceWebsite ID from query parameters
+    const query = referenceWebsite ? { referenceWebsite } : {};
+    const users = await User.find(query)
+      .populate("referenceWebsite", "websiteName websiteURL")
+      .select("-password"); // Exclude the password field
+    if (!users || users.length === 0) {
+      return res.status(404).json({ msg: "No users found" });
+    }
+    res.status(200).json(users);
+  } catch (error) {
+    console.error(`Error fetching users: ${error.message}`);
+    res.status(500).json({ msg: "Failed to fetch users", error: error.message });
+  }
 };

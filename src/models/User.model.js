@@ -1,7 +1,13 @@
 import mongoose from "mongoose";
 import jwt from "jsonwebtoken";
 
+const { Schema } = mongoose;
+
 const userSchema = new mongoose.Schema({
+  referenceWebsite: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Websitelist",
+  },
   firstName: {
     type: String,
     required: true,
@@ -15,44 +21,38 @@ const userSchema = new mongoose.Schema({
     required: true,
     unique: true,
   },
+  mobile: {
+    type: String,
+  },
+  address: {
+    type: String,
+  },
   password: {
     type: String,
     required: true,
+  },
+  role: {
+    type: String,
+    default: "user",
   },
 });
 
 // Method to create an access token
 userSchema.methods.createAccessToken = function () {
   return jwt.sign(
-    { id: this._id, email: this.email },
+    { id: this._id, email: this.email, role: this.role,referenceWebsite:this.referenceWebsite },
     process.env.SECRET_KEY,
-    { expiresIn: "1d" } // Short-lived
+    { expiresIn: "1d" } 
   );
 };
 
 // Method to create a refresh token
 userSchema.methods.createRefreshToken = function () {
   return jwt.sign(
-    { id: this._id, email: this.email },
+    { id: this._id, email: this.email, role: this.role,referenceWebsite:this.referenceWebsite  },
     process.env.REFRESH_SECRET_KEY,
-    { expiresIn: "7d" } // Long-lived
+    { expiresIn: "7d" } 
   );
-};
-
-// Method to verify and refresh tokens
-userSchema.statics.refreshAccessToken = function (refreshToken) {
-  try {
-    // Verify the refresh token
-    const decoded = jwt.verify(refreshToken, process.env.REFRESH_SECRET_KEY);
-    // If valid, return a new access token
-    return jwt.sign(
-      { id: decoded.id, email: decoded.email },
-      process.env.SECRET_KEY,
-      { expiresIn: "15m" }
-    );
-  } catch (err) {
-    throw new Error("Invalid or expired refresh token");
-  }
 };
 
 const User = mongoose.model("User", userSchema);
