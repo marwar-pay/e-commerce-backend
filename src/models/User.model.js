@@ -4,10 +4,10 @@ import jwt from "jsonwebtoken";
 const { Schema } = mongoose;
 
 const userSchema = new mongoose.Schema({
-  referenceWebsite: {
+  referenceWebsite: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: "Websitelist",
-  },
+  }],
   firstName: {
     type: String,
     required: true,
@@ -40,18 +40,18 @@ const userSchema = new mongoose.Schema({
 // Method to create an access token
 userSchema.methods.createAccessToken = function () {
   return jwt.sign(
-    { id: this._id, email: this.email, role: this.role,referenceWebsite:this.referenceWebsite },
+    { id: this._id, email: this.email, role: this.role, referenceWebsite: this.referenceWebsite },
     process.env.SECRET_KEY,
-    { expiresIn: "1d" } 
+    { expiresIn: "1d" }
   );
 };
 
 // Method to create a refresh token
 userSchema.methods.createRefreshToken = function () {
   return jwt.sign(
-    { id: this._id, email: this.email, role: this.role,referenceWebsite:this.referenceWebsite  },
+    { id: this._id, email: this.email, role: this.role, referenceWebsite: this.referenceWebsite },
     process.env.REFRESH_SECRET_KEY,
-    { expiresIn: "7d" } 
+    { expiresIn: "7d" }
   );
 };
 

@@ -8,7 +8,7 @@ const orderRoutes = express.Router();
 orderRoutes.post("/order", verifyToken, createOrder);
 orderRoutes.get("/orders", verifyToken, getOrdersByUser);
 orderRoutes.get("/orders/:id", verifyToken, getOrder); 
-orderRoutes.put("/orders/:id/status", isAdmin, updateOrderStatus); 
+orderRoutes.put("/orders/:id/status", verifyToken, updateOrderStatus); 
 orderRoutes.delete("/orders/:id", isAdmin , deleteOrder); 
 orderRoutes.get("/allorders",isAdmin ,getOrdersByReferenceWebsite)
 

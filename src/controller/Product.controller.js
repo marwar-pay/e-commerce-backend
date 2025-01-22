@@ -1,20 +1,17 @@
 import Product from "../models/Product.model.js";
+import mongoose from "mongoose";
 import Websitelist from "../models/Website.model.js"; // Import the Websitelist model
 
 export const createProduct = async (req, res) => {
     try {
         const { referenceWebsite, productName, images, discount, price, actualPrice, category, description, size } = req.body;
-
         const imageArray = Array.isArray(images) ? images : [images];
-
         const productSize = size || "M";
-
         if (actualPrice < 0 || actualPrice > price) {
             return res.status(400).json({
                 message: "Invalid actualPrice. It must be a positive value and less than or equal to price.",
             });
         }
-
         const product = new Product({
             referenceWebsite,
             productName,
@@ -27,36 +24,102 @@ export const createProduct = async (req, res) => {
             discount
         });
         await product.save();
-        res.status(201).json({ message: "Product added successfully", product });
+        res.status(200).json({ message: "Product added successfully", product });
     } catch (error) {
         res.status(500).json({ message: "Failed to add product", error: error.message });
     }
 };
 
-
 export const getProducts = async (req, res) => {
     try {
-        const { referenceWebsite } = req.query;
+        const {
+            referenceWebsite,
+            category,
+            search,
+            sortBy = 'createdAt',
+            sortOrder = 'desc',
+            page = 1,
+            limit = 10,
+        } = req.query;
         if (!referenceWebsite) {
             return res.status(400).json({ message: "Reference website is required" });
         }
-        const website = await Websitelist.findById(referenceWebsite);
-        if (!website) {
-            return res.status(403).json({ message: "Unauthorized. Reference website not found or invalid" });
+        const pageNumber = parseInt(page, 10) || 1;
+        const pageSize = parseInt(limit, 10) || 10;
+        const matchStage = { referenceWebsite: new mongoose.Types.ObjectId(referenceWebsite) };
+        if (category) {
+            matchStage.category = new mongoose.Types.ObjectId(category);
         }
-        const products = await Product.find({ referenceWebsite });
-        if (products.length === 0) {
-            return res.status(404).json({ message: "No products found for this reference website" });
+        if (search) {
+            matchStage.$or = [
+                { productName: { $regex: search, $options: 'i' } },
+                { description: { $regex: search, $options: 'i' } },
+            ];
         }
-        res.status(200).json({ message: "Products retrieved successfully", products });
+        const pipeline = [
+            { $match: matchStage }, // Match documents based on filters
+            {
+                $lookup: {
+                    from: 'productcategories', // Ensure this matches your actual collection name
+                    localField: 'category',
+                    foreignField: '_id',
+                    as: 'category',
+                },
+            },
+            {
+                $unwind: {
+                    path: '$category',
+                    preserveNullAndEmptyArrays: true, // Retain products without a category
+                },
+            },
+            {
+                $addFields: {
+                    category: {
+                        _id: '$category._id',
+                        name: '$category.name',
+                    },
+                },
+            },
+            {
+                $sort: { [sortBy]: sortOrder === 'asc' ? 1 : -1 },
+            },
+            {
+                $facet: {
+                    metadata: [
+                        { $count: 'totalDocuments' },
+                        {
+                            $addFields: {
+                                currentPage: pageNumber,
+                                pageSize,
+                                totalPages: { $ceil: { $divide: ['$totalDocuments', pageSize] } },
+                            },
+                        },
+                    ],
+                    products: [
+                        { $skip: (pageNumber - 1) * pageSize },
+                        { $limit: pageSize },
+                    ],
+                },
+            },
+        ];
+        const results = await Product.aggregate(pipeline);
+        const metadata = results[0]?.metadata[0] || {
+            totalDocuments: 0,
+            currentPage: pageNumber,
+            pageSize,
+            totalPages: 0,
+        };
+        const products = results[0]?.products || [];
+        res.status(200).json({
+            products,
+            pagination: metadata,
+        });
     } catch (error) {
-        res.status(500).json({ message: "Failed to retrieve products", error: error.message });
+        console.error('Error in getProducts:', error.message);
+        res.status(500).json({ message: 'Failed to retrieve products', error: error.message });
     }
 };
 
-
-
-// Retrieve a single product by ID
 export const getProductDetail = async (req, res) => {
     try {
         const product = await Product.findById(req.params.id);
@@ -91,7 +154,7 @@ export const updateProduct = async (req, res) => {
                 size: productSize,
                 discount
             },
-            { new: true } 
+            { new: true }
         );
 
         if (!updatedProduct) {

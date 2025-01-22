@@ -37,11 +37,11 @@ const productSchema = new mongoose.Schema(
       default: "M", // Default size
       required: true,
     },
-    discount:{
-      type:Number,
-      default:0
+    discount: {
+      type: Number,
+      default: 0
     },
-    category:{
+    category: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "ProductCategory"
     }

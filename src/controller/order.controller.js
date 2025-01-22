@@ -41,22 +41,73 @@ export const createOrder = async (req, res) => {
     }
 };
 
-
 export const getOrdersByReferenceWebsite = async (req, res) => {
     try {
-        const { referenceWebsite } = req.query;
+        const {
+            referenceWebsite,
+            customerName,
+            startDate,
+            endDate,
+            minPrice,
+            maxPrice,
+            page = 1,
+            limit = 10
+        } = req.query;
+
         if (!referenceWebsite) {
-            return res.status(400).json({ message: "Reference website is required" });
+            return res.status(400).json({ message: "Reference website is required." });
         }
-        const orders = await Order.find({ referenceWebsite })
-            .populate("products.product", "productName price")
-            .populate("customer", "firstName lastName email");
+
+        const filter = { referenceWebsite };
+
+        // If startDate or endDate is provided, add date filters
+        if (startDate || endDate) {
+            filter.createdAt = {};
+            if (startDate) filter.createdAt.$gte = new Date(startDate);
+            if (endDate) filter.createdAt.$lte = new Date(endDate);
+        }
+
+        // If minPrice or maxPrice is provided, add price filters
+        if (minPrice || maxPrice) {
+            filter['products.product.price'] = {};
+            if (minPrice) filter['products.product.price'].$gte = parseFloat(minPrice);
+            if (maxPrice) filter['products.product.price'].$lte = parseFloat(maxPrice);
+        }
+
+        // Pagination settings
+        const skip = (page - 1) * limit;
+
+        // Fetch orders and populate products and customers
+        let orders = await Order.find(filter)
+            .populate('products.product', 'productName price')
+            .populate('customer', 'firstName lastName email')
+            .sort({ createdAt: -1 }) // Latest orders first
+            .skip(skip)
+            .limit(parseInt(limit));
+
+        // Filter by customer name if provided
+        if (customerName) {
+            orders = orders.filter(order => {
+                const fullName = `${order.customer.firstName} ${order.customer.lastName}`.toLowerCase();
+                return fullName.includes(customerName.toLowerCase());
+            });
+        }
+
+        const totalOrders = await Order.countDocuments(filter);
+
         if (!orders || orders.length === 0) {
-            return res.status(404).json({ message: "No orders found for the reference website" });
+            return res.status(404).json({ message: "No orders found matching the criteria." });
         }
-        res.status(200).json({ message: "Orders retrieved successfully", orders });
+
+        res.status(200).json({
+            orders,
+            totalOrders,
+            currentPage: parseInt(page),
+            totalPages: Math.ceil(totalOrders / limit),
+        });
     } catch (error) {
-        res.status(500).json({ message: "Failed to fetch orders", error: error.message });
+        console.error(error);
+        res.status(500).json({ message: "Failed to fetch orders.", error: error.message });
     }
 };
 

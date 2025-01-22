@@ -9,6 +9,7 @@ import productRoutes from "./src/routes/product.routes.js";
 import websiteRoutes from "./src/routes/website.routes.js";
 import cartRoutes from "./src/routes/cart.routes.js";
 import catergoriesRoutes from "./src/routes/category.routes.js"
+import { phonePeController } from "./src/routes/payment.routes.js";
 
 dotenv.config();
 
@@ -26,12 +27,13 @@ app.use("/api/cart", cartRoutes);
 app.use('/api/categories', catergoriesRoutes);
 app.use("/api/product", productRoutes);
 app.use("/api/order", orderRoutes);
+app.post("/api/phonepe-payment",phonePeController)
 
 // 67888fb90e1c6b678401302d
 
 DBConnection();
 
-app.use('/', (req, res) => {
+app.get('/', (req, res) => {
   res.send('server running well')
 })
 

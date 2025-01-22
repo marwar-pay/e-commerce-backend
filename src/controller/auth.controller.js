@@ -2,6 +2,8 @@ import bcrypt from "bcryptjs";
 import dotenv from "dotenv";
 import User from '../models/User.model.js';
 import jwt from 'jsonwebtoken';
+import mongoose from "mongoose";
+
 
 dotenv.config({ path: "../.env" });
 
@@ -14,7 +16,16 @@ export const registerUser = async (req, res) => {
     }
     const existingUser = await User.findOne({ email });
     if (existingUser) {
-      return res.status(400).json({ msg: "This email is already registered. Please login." });
+      if (!existingUser.referenceWebsite.includes(referenceWebsite)) {
+        existingUser.referenceWebsite.push(referenceWebsite);
+        await existingUser.save();
+        return res.status(200).json({
+          msg: "Reference website added to existing user.",
+          userData: existingUser,
+        });
+      } else {
+        return res.status(400).json({ msg: "User already registered with this website." });
+      }
     }
     const hashPassword = await bcrypt.hash(password, 10);
     const userData = await User.create({
@@ -22,14 +33,17 @@ export const registerUser = async (req, res) => {
       lastName,
       email,
       password: hashPassword,
-      referenceWebsite,
+      referenceWebsite: [referenceWebsite],
       mobile,
       address,
-      role: role || 'user'
+      role: role || "user",
     });
+
     const accessToken = userData.createAccessToken();
     const refreshToken = userData.createRefreshToken();
     userData.password = undefined;
+
+    // Set cookies for tokens
     res.cookie("refreshToken", refreshToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
@@ -40,10 +54,12 @@ export const registerUser = async (req, res) => {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "Strict",
-      maxAge: 24 * 60 * 60 * 1000,
+      maxAge: 2 * 24 * 60 * 60 * 1000,
     });
+    // Respond with user data and access token
     res.status(200).json({
       userData,
+      refreshToken,
       accessToken,
       message: "You have successfully registered!",
     });
@@ -53,17 +69,25 @@ export const registerUser = async (req, res) => {
   }
 };
 
-
 export const logInUser = async (req, res) => {
   try {
-    const { email, password } = req.body;
-    if (!email || !password) {
-      return res.status(400).json({ msg: "Email and password are required." });
+    const { email, password, referenceWebsite } = req.body;
+
+    if (!email || !password || !referenceWebsite) {
+      return res.status(400).json({ msg: "Email, password, and reference website are required." });
     }
+
     const user = await User.findOne({ email });
     if (!user) {
       return res.status(400).json({ msg: "No account found with this email. Please sign up." });
     }
+    // Check if the user is registered for the given reference website
+    if (!user.referenceWebsite.includes(referenceWebsite)) {
+      return res.status(400).json({
+        msg: `You need to register on ${referenceWebsite} before logging in.`,
+      });
+    }
+
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
       return res.status(400).json({ msg: "Invalid password." });
@@ -74,18 +98,13 @@ export const logInUser = async (req, res) => {
 
     const cookieOptions = {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',  // Ensure this is true in production (HTTPS required)
+      secure: process.env.NODE_ENV === "production", // Ensure this is true in production
       sameSite: "Strict",
     };
 
     res.cookie("refreshToken", refreshToken, {
       ...cookieOptions,
-      maxAge: 7 * 24 * 60 * 60 * 1000,  // 7 days
-    });
-
-    res.cookie("accessToken", accessToken, {
-      ...cookieOptions,
-      maxAge: 24 * 60 * 60 * 1000,  // 1 day
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
 
     user.password = undefined;
@@ -94,13 +113,76 @@ export const logInUser = async (req, res) => {
       userData: user,
       msg: "You have logged in successfully",
       accessToken,
-      refreshToken
+      refreshToken,
     });
   } catch (error) {
     console.error(`Error: ${error.message}`);
     res.status(500).json({ msg: "Login failed", error: error.message });
   }
 };
+
+export const adminLogin = async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    if (!email || !password) {
+      return res.status(400).json({ msg: "Email, password, and reference website are required." });
+    }
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(400).json({ msg: "No account found with this email. Please sign up." });
+    }
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    if (!isPasswordValid) {
+      return res.status(400).json({ msg: "Invalid password." });
+    }
+    const accessToken = user.createAccessToken();
+    const refreshToken = user.createRefreshToken();
+    const cookieOptions = {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production", // Ensure this is true in production
+      sameSite: "Strict",
+    };
+    res.cookie("refreshToken", refreshToken, {
+      ...cookieOptions,
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    });
+
+    user.password = undefined;
+    return res.status(200).json({
+      userData: user,
+      msg: "You have logged in successfully",
+      accessToken,
+      refreshToken,
+    });
+  } catch (error) {
+    console.error(`Error: ${error.message}`);
+    res.status(500).json({ msg: "Login failed", error: error.message });
+  }
+};
+
+export const updateUserRole = async (req, res) => {
+  try {
+    const { userId } = req.params; // User ID from URL params
+    const { role } = req.body; // New role from request body
+    const validRoles = ['user', 'admin', 'vendor'];
+    if (!validRoles.includes(role)) {
+      return res.status(400).json({ msg: 'Invalid role provided.' });
+    }
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ msg: 'User not found.' });
+    }
+    user.role = role;
+    await user.save();
+    res.status(200).json({
+      msg: 'User role updated successfully.',
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ msg: 'Failed to update user role.', error: error.message });
+  }
+};
+
 
 export const getUserDetails = async (req, res) => {
   try {
@@ -110,7 +192,7 @@ export const getUserDetails = async (req, res) => {
     }
     const userDetail = await User.findById(user.id);
     res.status(200).json({
-      user:userDetail,
+      user: userDetail,
       msg: "User details fetched successfully.",
     });
   } catch (error) {
@@ -119,14 +201,7 @@ export const getUserDetails = async (req, res) => {
   }
 };
 
-
 export const logoutUser = (req, res) => {
-  res.clearCookie("accessToken", {
-    httpOnly: true,
-    secure: true,
-    sameSite: "Strict",
-  });
-
   res.clearCookie("refreshToken", {
     httpOnly: true,
     secure: true,
@@ -136,20 +211,59 @@ export const logoutUser = (req, res) => {
   res.status(200).json({ message: "You have successfully logged out!" });
 };
 
-
 export const getAllUsers = async (req, res) => {
   try {
-    const { referenceWebsite } = req.query; // Get the referenceWebsite ID from query parameters
-    const query = referenceWebsite ? { referenceWebsite } : {};
-    const users = await User.find(query)
-      .populate("referenceWebsite", "websiteName websiteURL")
+    const {
+      referenceWebsite, // Array of ObjectIds
+      role,
+      search, 
+      sortField = "firstName",
+      sortOrder = "asc",
+      page = 1,
+      limit = 10,
+    } = req.query;
+
+    const pageNumber = parseInt(page, 10) || 1;
+    const pageSize = parseInt(limit, 10) || 10;
+    const skip = (pageNumber - 1) * pageSize;
+    const filter = {};
+    if (referenceWebsite) {
+      filter.referenceWebsite = {
+        $in: referenceWebsite.split(",").map((id) => new mongoose.Types.ObjectId(id)),
+      };
+    }
+    if (role) {
+      filter.role = role;
+    }
+    if (search) {
+      const regex = new RegExp(search, "i"); // Case-insensitive search
+      filter.$or = [
+        { firstName: regex },
+        { lastName: regex },
+        { email: regex },
+      ];
+    }
+    const sortOptions = { [sortField]: sortOrder === "asc" ? 1 : -1 };
+    const users = await User.find(filter)
+      .sort(sortOptions)
+      .skip(skip)
+      .limit(pageSize)
       .select("-password"); // Exclude the password field
+    const totalUsers = await User.countDocuments(filter);
     if (!users || users.length === 0) {
       return res.status(404).json({ msg: "No users found" });
     }
-    res.status(200).json(users);
+    res.status(200).json({
+      total: totalUsers,
+      page: pageNumber,
+      limit: pageSize,
+      totalPages: Math.ceil(totalUsers / pageSize),
+      data: users,
+    });
   } catch (error) {
     console.error(`Error fetching users: ${error.message}`);
     res.status(500).json({ msg: "Failed to fetch users", error: error.message });
   }
 };
+
+
