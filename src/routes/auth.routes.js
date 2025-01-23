@@ -12,7 +12,7 @@ authRoutes.post("/signUp", registerUser);
 authRoutes.post("/logIn", logInUser);
 authRoutes.post("/admin_login", adminLogin)
 authRoutes.get("/userInfo", verifyToken, getUserDetails)
-authRoutes.post("/logOut", logoutUser);
+authRoutes.get("/logOut", logoutUser);
 authRoutes.get("/allusers", isAdmin, getAllUsers)
 authRoutes.put('/updateRole/:userId',isAdmin, updateUserRole);
 

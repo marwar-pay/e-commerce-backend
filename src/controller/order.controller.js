@@ -81,6 +81,7 @@ export const getOrdersByReferenceWebsite = async (req, res) => {
         let orders = await Order.find(filter)
             .populate('products.product', 'productName price')
             .populate('customer', 'firstName lastName email')
+            .populate('referenceWebsite', 'websiteName')
             .sort({ createdAt: -1 }) // Latest orders first
             .skip(skip)
             .limit(parseInt(limit));

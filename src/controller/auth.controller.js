@@ -215,7 +215,6 @@ export const getAllUsers = async (req, res) => {
   try {
     const {
       referenceWebsite, // Array of ObjectIds
-      role,
       search, 
       sortField = "firstName",
       sortOrder = "asc",
@@ -231,9 +230,6 @@ export const getAllUsers = async (req, res) => {
       filter.referenceWebsite = {
         $in: referenceWebsite.split(",").map((id) => new mongoose.Types.ObjectId(id)),
       };
-    }
-    if (role) {
-      filter.role = role;
     }
     if (search) {
       const regex = new RegExp(search, "i"); // Case-insensitive search

@@ -29,33 +29,47 @@ export const createProduct = async (req, res) => {
         res.status(500).json({ message: "Failed to add product", error: error.message });
     }
 };
-
 export const getProducts = async (req, res) => {
     try {
         const {
             referenceWebsite,
             category,
             search,
+            minPrice,
+            maxPrice,
             sortBy = 'createdAt',
             sortOrder = 'desc',
             page = 1,
             limit = 10,
         } = req.query;
+
         if (!referenceWebsite) {
             return res.status(400).json({ message: "Reference website is required" });
         }
+
         const pageNumber = parseInt(page, 10) || 1;
         const pageSize = parseInt(limit, 10) || 10;
+
+        // Build the match stage for filtering
         const matchStage = { referenceWebsite: new mongoose.Types.ObjectId(referenceWebsite) };
+
         if (category) {
             matchStage.category = new mongoose.Types.ObjectId(category);
         }
+
         if (search) {
             matchStage.$or = [
                 { productName: { $regex: search, $options: 'i' } },
                 { description: { $regex: search, $options: 'i' } },
             ];
         }
+
+        if (minPrice || maxPrice) {
+            matchStage.actualPrice = {};
+            if (minPrice) matchStage.actualPrice.$gte = parseFloat(minPrice);
+            if (maxPrice) matchStage.actualPrice.$lte = parseFloat(maxPrice);
+        }
+
         const pipeline = [
             { $match: matchStage }, // Match documents based on filters
             {
@@ -102,7 +116,9 @@ export const getProducts = async (req, res) => {
                 },
             },
         ];
+
         const results = await Product.aggregate(pipeline);
+
         const metadata = results[0]?.metadata[0] || {
             totalDocuments: 0,
             currentPage: pageNumber,
@@ -110,6 +126,7 @@ export const getProducts = async (req, res) => {
             totalPages: 0,
         };
         const products = results[0]?.products || [];
+
         res.status(200).json({
             products,
             pagination: metadata,
@@ -119,6 +136,7 @@ export const getProducts = async (req, res) => {
         res.status(500).json({ message: 'Failed to retrieve products', error: error.message });
     }
 };
+
 
 export const getProductDetail = async (req, res) => {
     try {

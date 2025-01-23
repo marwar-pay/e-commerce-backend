@@ -17,7 +17,7 @@ websiteRoutes.post('/add', isAdmin, createWebsite);
 websiteRoutes.get('/', isAdmin, getAllWebsites);
 
 // // 3. Get Website by ID
-websiteRoutes.get('/:websiteId', isAdmin, getWebsiteById);
+websiteRoutes.get('/:websiteId', getWebsiteById);
 
 // // 4. Update Website by ID
 websiteRoutes.put('/:websiteId', isAdmin, updateWebsite);

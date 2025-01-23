@@ -27,6 +27,10 @@ const WebsiteListSchema = new Schema({
         type: Boolean,
         default: true,
     },
+    categories: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'ProductCategory'
+    }]
 });
 
 const Websitelist = mongoose.model('Websitelist', WebsiteListSchema);
