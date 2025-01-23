@@ -6,8 +6,8 @@ import Cart from "../models/Cart.model.js";
 export const createOrder = async (req, res) => {
     try {
         const { products, shippingAddress } = req.body;
-        const customer = req.user.id;
-        const referenceWebsite = req.user.referenceWebsite;
+        const customer = req.user?.id;
+        const referenceWebsite = req.user?.referenceWebsite;
         if (!products || products.length === 0) {
             return res.status(400).json({ message: "At least one product is required" });
         }
@@ -27,14 +27,14 @@ export const createOrder = async (req, res) => {
             shippingAddress,
         });
         await newOrder.save();
-        const cart = await Cart.findOne({ user: customer+referenceWebsite });
-        if (cart) {
-            cart.items = [];
-            cart.totalAmount = 0;
-            cart.isCheckedOut = true;
-            cart.lastUpdated = Date.now();
-            await cart.save();
-        }
+        // const cart = await Cart.findOne({ user: customer });
+        // if (cart) {
+        //     cart.items = [];
+        //     cart.totalAmount = 0;
+        //     cart.isCheckedOut = true;
+        //     cart.lastUpdated = Date.now();
+        //     await cart.save();
+        // }
         res.status(201).json({ message: "Order created successfully", order: newOrder });
     } catch (error) {
         res.status(500).json({ message: "Failed to create order", error: error.message });
