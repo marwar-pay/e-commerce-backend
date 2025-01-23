@@ -8,6 +8,8 @@ export const addItemToCart = async (req, res) => {
 
         const userId = req.user?.id;
 
+        console.log(req.user)
+
         if (!userId) {
             return res.status(401).json({ message: 'User not authenticated.' });
         }
