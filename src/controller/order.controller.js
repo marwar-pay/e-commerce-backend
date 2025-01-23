@@ -27,7 +27,7 @@ export const createOrder = async (req, res) => {
             shippingAddress,
         });
         await newOrder.save();
-        const cart = await Cart.findOne({ user: customer });
+        const cart = await Cart.findOne({ user: customer+referenceWebsite });
         if (cart) {
             cart.items = [];
             cart.totalAmount = 0;

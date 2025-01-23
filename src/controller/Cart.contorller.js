@@ -1,14 +1,13 @@
 import Cart from '../models/Cart.model.js';
 import Product from '../models/Product.model.js';  // Assuming you have a Product model
 
+
 // 1. Add Item to Cart
 export const addItemToCart = async (req, res) => {
     try {
         const { productId, quantity } = req.body;
 
-        const userId = req.user?.id;
-
-        console.log(req.user)
+        const userId = req.user?.id + req.user?.referenceWebsite;
 
         if (!userId) {
             return res.status(401).json({ message: 'User not authenticated.' });
@@ -51,7 +50,7 @@ export const addItemToCart = async (req, res) => {
 export const updateCartItemQuantity = async (req, res) => {
     try {
         const { productId, quantity } = req.body;
-        const userId = req.user?.id;
+        const userId = req.user?.id + req.user?.referenceWebsite;
         if (!userId || !productId || !quantity) {
             return res.status(400).json({ message: 'User ID, Product ID, and Quantity are required.' });
         }
@@ -79,7 +78,7 @@ export const updateCartItemQuantity = async (req, res) => {
 export const removeItemFromCart = async (req, res) => {
     try {
         const { productId } = req.body;
-        const userId = req.user?.id;
+        const userId = req.user?.id + req.user?.referenceWebsite;
         if (!userId || !productId) {
             return res.status(400).json({ message: 'User ID and Product ID are required.' });
         }
@@ -105,7 +104,7 @@ export const removeItemFromCart = async (req, res) => {
 // 4. Get Cart for a User
 export const getCart = async (req, res) => {
     try {
-        const userId = req.user?.id;
+        const userId = req.user?.id + req.user?.referenceWebsite;
         if (!userId) {
             return res.status(400).json({ message: 'User ID is required.' });
         }
