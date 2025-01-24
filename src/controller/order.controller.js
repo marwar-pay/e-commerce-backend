@@ -27,14 +27,16 @@ export const createOrder = async (req, res) => {
             shippingAddress,
         });
         await newOrder.save();
-        // const cart = await Cart.findOne({ user: customer });
-        // if (cart) {
-        //     cart.items = [];
-        //     cart.totalAmount = 0;
-        //     cart.isCheckedOut = true;
-        //     cart.lastUpdated = Date.now();
-        //     await cart.save();
-        // }
+        const identifier = `${customer}-${referenceWebsite}`;
+
+        const cart = await Cart.findOne({ identifier });
+        if (cart) {
+            cart.items = [];
+            cart.totalAmount = 0;
+            cart.isCheckedOut = true;
+            cart.lastUpdated = Date.now();
+            await cart.save();
+        }
         res.status(201).json({ message: "Order created successfully", order: newOrder });
     } catch (error) {
         res.status(500).json({ message: "Failed to create order", error: error.message });

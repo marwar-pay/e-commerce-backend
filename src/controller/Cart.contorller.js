@@ -1,5 +1,5 @@
 import Cart from '../models/Cart.model.js';
-import Product from '../models/Product.model.js';  // Assuming you have a Product model
+import Product from '../models/Product.model.js'; // Assuming you have a Product model
 
 // 1. Add Item to Cart
 export const addItemToCart = async (req, res) => {
@@ -7,22 +7,25 @@ export const addItemToCart = async (req, res) => {
         const { productId, quantity } = req.body;
 
         const userId = req.user?.id;
+        const referenceWebsite = req.user?.referenceWebsite;
+        const identifier = `${userId}-${referenceWebsite}`;
 
         if (!userId) {
-            return res.status(401).json({ message: 'User not authenticated.' });
+            return res.status(401).json({ message: 'User not authenticated or reference website missing.' });
         }
         if (!productId || !quantity) {
             return res.status(400).json({ message: 'Product ID and Quantity are required.' });
         }
+
         const product = await Product.findById(productId);
         if (!product) {
             return res.status(404).json({ message: 'Product not found.' });
         }
-        // Find user's cart or create a new one
-        let cart = await Cart.findOne({ user: userId });
+
+        let cart = await Cart.findOne({ identifier });
         if (!cart) {
             cart = new Cart({
-                user: userId,
+                identifier,
                 items: [{ product: productId, quantity, price: product.price, total: product.price * quantity }],
                 totalAmount: product.price * quantity,
             });
@@ -45,22 +48,29 @@ export const addItemToCart = async (req, res) => {
     }
 };
 
-
+// 2. Update Cart Item Quantity
 export const updateCartItemQuantity = async (req, res) => {
     try {
         const { productId, quantity } = req.body;
+
         const userId = req.user?.id;
-        if (!userId || !productId || !quantity) {
-            return res.status(400).json({ message: 'User ID, Product ID, and Quantity are required.' });
+        const referenceWebsite = req.user?.referenceWebsite;
+        const identifier = `${userId}-${referenceWebsite}`;
+
+        if (!identifier || !productId || !quantity) {
+            return res.status(400).json({ message: 'Identifier, Product ID, and Quantity are required.' });
         }
-        const cart = await Cart.findOne({ user: userId });
+
+        const cart = await Cart.findOne({ identifier });
         if (!cart) {
-            return res.status(404).json({ message: 'Cart not found for the user.' });
+            return res.status(404).json({ message: 'Cart not found for the user and website.' });
         }
+
         const itemIndex = cart.items.findIndex(item => item.product.toString() === productId);
         if (itemIndex === -1) {
             return res.status(404).json({ message: 'Product not found in the cart.' });
         }
+
         const item = cart.items[itemIndex];
         item.quantity = quantity;
         item.total = item.quantity * item.price;
@@ -77,19 +87,26 @@ export const updateCartItemQuantity = async (req, res) => {
 export const removeItemFromCart = async (req, res) => {
     try {
         const { productId } = req.body;
+
         const userId = req.user?.id;
-        if (!userId || !productId) {
-            return res.status(400).json({ message: 'User ID and Product ID are required.' });
+        const referenceWebsite = req.user?.referenceWebsite;
+        const identifier = `${userId}-${referenceWebsite}`;
+
+        if (!identifier || !productId) {
+            return res.status(400).json({ message: 'Identifier and Product ID are required.' });
         }
-        const cart = await Cart.findOne({ user: userId });
+
+        const cart = await Cart.findOne({ identifier });
         if (!cart) {
-            return res.status(404).json({ message: 'Cart not found for the user.' });
+            return res.status(404).json({ message: 'Cart not found for the user and website.' });
         }
+
         const updatedItems = cart.items.filter(item => item.product.toString() !== productId);
         if (updatedItems.length === 0) {
-            await Cart.deleteOne({ user: userId });
+            await Cart.deleteOne({ identifier });
             return res.status(200).json({ message: 'Cart is now empty' });
         }
+
         cart.items = updatedItems;
         cart.totalAmount = cart.items.reduce((total, item) => total + item.total, 0);
         await cart.save();
@@ -104,13 +121,18 @@ export const removeItemFromCart = async (req, res) => {
 export const getCart = async (req, res) => {
     try {
         const userId = req.user?.id;
-        if (!userId) {
-            return res.status(400).json({ message: 'User ID is required.' });
+        const referenceWebsite = req.user?.referenceWebsite;
+        const identifier = `${userId}-${referenceWebsite}`;
+
+        if (!identifier) {
+            return res.status(400).json({ message: 'Identifier is required.' });
         }
-        const cart = await Cart.findOne({ user: userId }).populate('items.product', 'productName images price actualPrice discount');
+
+        const cart = await Cart.findOne({ identifier }).populate('items.product', 'productName images price actualPrice discount');
         if (!cart) {
-            return res.status(404).json({ message: 'No cart found for the user.' });
+            return res.status(404).json({ message: 'No cart found for the user and website.' });
         }
+
         res.status(200).json({ message: 'Cart retrieved successfully', cart });
     } catch (error) {
         console.error(error);
@@ -121,14 +143,18 @@ export const getCart = async (req, res) => {
 // 5. Checkout Cart
 export const checkoutCart = async (req, res) => {
     try {
-        const { userId } = req.body;
-        if (!userId) {
-            return res.status(400).json({ message: 'User ID is required.' });
+        const userId = req.user?.id;
+        const referenceWebsite = req.user?.referenceWebsite;
+        const identifier = `${userId}-${referenceWebsite}`;
+
+        if (!identifier) {
+            return res.status(400).json({ message: 'Identifier is required.' });
         }
-        const cart = await Cart.findOne({ user: userId });
+        const cart = await Cart.findOne({ identifier });
         if (!cart) {
-            return res.status(404).json({ message: 'No cart found for the user.' });
+            return res.status(404).json({ message: 'No cart found for the user and website.' });
         }
+
         cart.isCheckedOut = true;
         cart.lastUpdated = Date.now();
         await cart.save();
