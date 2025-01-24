@@ -151,44 +151,45 @@ export const getOrder = async (req, res) => {
 };
 
 // Update order status (for example, when an order is shipped or delivered)
-export const updateOrderStatus = async (req, res) => {
-    try {
-        const { status } = req.body;
-
-        if (!["pending", "processing", "shipped", "delivered", "cancelled"].includes(status)) {
+    export const updateOrderStatus = async (req, res) => {
+        try {
+          const { status, paymentStatus } = req.body;
+          if (status && !["pending", "processing", "shipped", "delivered", "cancelled"].includes(status)) {
             return res.status(400).json({ message: "Invalid status" });
-        }
-        const order = await Order.findOneAndUpdate(
+          }
+          if (paymentStatus && !["pending", "completed", "failed"].includes(paymentStatus)) {
+            return res.status(400).json({ message: "Invalid payment status" });
+          }
+          const updateFields = {};
+          if (status) updateFields.status = status;
+          if (paymentStatus) updateFields.paymentStatus = paymentStatus;
+          const order = await Order.findOneAndUpdate(
             { _id: req.params.id, isDeleted: false }, // Only update if the order is not deleted
-            { status },
+            updateFields,
             { new: true } // Return the updated document
-        );
-        if (!order) {
+          );
+          if (!order) {
             return res.status(404).json({ message: "Order not found" });
+          }
+          res.status(200).json({ message: "Order updated successfully", order });
+        } catch (error) {
+          res.status(500).json({ message: "Failed to update order", error: error.message });
         }
-        res.status(200).json({ message: "Order status updated", order });
-    } catch (error) {
-        res.status(500).json({ message: "Failed to update order status", error: error.message });
-    }
-};
+      };
+      
 
 // Delete an order
 export const deleteOrder = async (req, res) => {
     try {
-        // Find the order by ID and set isDeleted to true
-        const order = await Order.findByIdAndUpdate(
-            req.params.id,
-            { isDeleted: true },
-            { new: true }  // Return the updated order
-        );
-
-        if (!order) {
-            return res.status(404).json({ message: "Order not found" });
-        }
-
-        res.status(200).json({ message: "Order marked as deleted", order });
+      const order = await Order.findByIdAndDelete(req.params.id);
+      console.log('hello')
+      if (!order) {
+        return res.status(404).json({ message: "Order not found" });
+      }
+      res.status(200).json({ message: "Order deleted successfully" });
     } catch (error) {
-        res.status(500).json({ message: "Failed to delete order", error: error.message });
+      res.status(500).json({ message: "Failed to delete order", error: error.message });
     }
-};
+  };
+  
 
