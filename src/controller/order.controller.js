@@ -53,16 +53,15 @@ export const getOrdersByReferenceWebsite = async (req, res) => {
             minPrice,
             maxPrice,
             page = 1,
-            limit = 10
+            limit = 10,
+            sortBy = 'createdAt', // Default to sorting by creation date
+            sortOrder = 'desc' // Default to descending order
         } = req.query;
-
-        if (!referenceWebsite) {
-            return res.status(400).json({ message: "Reference website is required." });
+        const filter = {};
+        if (referenceWebsite) {
+            filter.referenceWebsite = referenceWebsite;
         }
 
-        const filter = { referenceWebsite };
-
-        // If startDate or endDate is provided, add date filters
         if (startDate || endDate) {
             filter.createdAt = {};
             if (startDate) filter.createdAt.$gte = new Date(startDate);
@@ -71,24 +70,24 @@ export const getOrdersByReferenceWebsite = async (req, res) => {
 
         // If minPrice or maxPrice is provided, add price filters
         if (minPrice || maxPrice) {
-            filter['products.product.price'] = {};
-            if (minPrice) filter['products.product.price'].$gte = parseFloat(minPrice);
-            if (maxPrice) filter['products.product.price'].$lte = parseFloat(maxPrice);
+            filter.totalAmount = filter.totalAmount || {}; 
+            if (minPrice) filter.totalAmount.$gte = parseFloat(minPrice);
+            if (maxPrice) filter.totalAmount.$lte = parseFloat(maxPrice);
         }
 
-        // Pagination settings
         const skip = (page - 1) * limit;
 
-        // Fetch orders and populate products and customers
+        const sortOptions = {};
+        sortOptions[sortBy] = sortOrder === 'asc' ? 1 : -1;
+
         let orders = await Order.find(filter)
             .populate('products.product', 'productName price')
             .populate('customer', 'firstName lastName email')
             .populate('referenceWebsite', 'websiteName')
-            .sort({ createdAt: -1 }) // Latest orders first
+            .sort(sortOptions) // Apply sorting
             .skip(skip)
             .limit(parseInt(limit));
 
-        // Filter by customer name if provided
         if (customerName) {
             orders = orders.filter(order => {
                 const fullName = `${order.customer.firstName} ${order.customer.lastName}`.toLowerCase();
@@ -115,6 +114,7 @@ export const getOrdersByReferenceWebsite = async (req, res) => {
 };
 
 
+
 export const getOrdersByUser = async (req, res) => {
     try {
         const userId = req.user.id;
@@ -122,7 +122,7 @@ export const getOrdersByUser = async (req, res) => {
             return res.status(400).json({ message: "User ID is required" });
         }
         const orders = await Order.find({ customer: userId })
-            .populate("products.product", "productName price")
+            .populate("products.product", "productName price images")
             .populate("customer", "firstName lastName email mobile");
         if (!orders || orders.length === 0) {
             return res.status(404).json({ message: "No orders found for this user" });
@@ -164,7 +164,7 @@ export const getOrder = async (req, res) => {
           if (status) updateFields.status = status;
           if (paymentStatus) updateFields.paymentStatus = paymentStatus;
           const order = await Order.findOneAndUpdate(
-            { _id: req.params.id, isDeleted: false }, // Only update if the order is not deleted
+            { _id: req.params.id }, // Only update if the order is not deleted
             updateFields,
             { new: true } // Return the updated document
           );
@@ -174,6 +174,7 @@ export const getOrder = async (req, res) => {
           res.status(200).json({ message: "Order updated successfully", order });
         } catch (error) {
           res.status(500).json({ message: "Failed to update order", error: error.message });
+          console.log(error)
         }
       };
       

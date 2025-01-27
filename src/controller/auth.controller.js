@@ -121,6 +121,8 @@ export const logInUser = async (req, res) => {
   }
 };
 
+
+
 export const adminLogin = async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -182,6 +184,53 @@ export const updateUserRole = async (req, res) => {
     res.status(500).json({ msg: 'Failed to update user role.', error: error.message });
   }
 };
+
+export const editProfile = async (req, res) => {
+  try {
+    const userId = req.user.id; // Assuming user ID is available via middleware (e.g., JWT auth)
+    const { firstName, lastName, email, mobile, address, password } = req.body;
+
+    if (!userId) {
+      return res.status(400).json({ msg: "User ID is required." });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ msg: "User not found." });
+    }
+
+    // Prepare updates
+    const updates = {};
+    if (firstName) updates.firstName = firstName;
+    if (lastName) updates.lastName = lastName;
+    if (email) updates.email = email;
+    if (mobile) updates.mobile = mobile;
+    if (address) updates.address = address;
+
+    // If password is provided, hash it before updating
+    if (password) {
+      updates.password = await bcrypt.hash(password, 10);
+    }
+
+    // Update user details
+    const updatedUser = await User.findByIdAndUpdate(userId, updates, {
+      new: true,
+      runValidators: true,
+    });
+
+    // Remove sensitive data before sending the response
+    updatedUser.password = undefined;
+
+    res.status(200).json({
+      msg: "Profile updated successfully.",
+      userData: updatedUser,
+    });
+  } catch (error) {
+    console.error("Error in editProfile:", error);
+    res.status(500).json({ msg: "Failed to update profile.", error: error.message });
+  }
+};
+
 
 
 export const getUserDetails = async (req, res) => {
