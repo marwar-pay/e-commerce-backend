@@ -3,22 +3,29 @@ import Websitelist from "../models/Website.model.js";
 // 1. Create a new Website Entry
 export const createWebsite = async (req, res) => {
     try {
-        const { websiteName, websiteDescription, websiteURL, categories = [] } = req.body;
+        const { websiteName, websiteDescription, websiteURL, categories } = req.body;
+
+        const parsedCategories = JSON.parse(categories) || [];
 
         if (!websiteName || !websiteURL) {
             return res.status(400).json({ message: "Website name and URL are required." });
         }
 
+        console.log("file: website.controller.js:16 ~ createWebsite ~ req.file:", req.file);
+        const logoPath = req.file ? `uploads/${req.file.filename}` : null;
+
+        console.log("file: website.controller.js:15 ~ createWebsite ~ logoPath:", logoPath);
         const newWebsite = new Websitelist({
             websiteName,
             websiteDescription,
             websiteURL,
-            categories,
+            categories: parsedCategories,
+            logoPath
         });
 
         await newWebsite.save();
 
-        res.status(201).json({
+        res.status(200).json({
             message: "Website created successfully.",
             website: newWebsite,
         });
@@ -31,15 +38,21 @@ export const createWebsite = async (req, res) => {
 // 2. Get all websites
 export const getAllWebsites = async (req, res) => {
     try {
-        const websites = await Websitelist.find().populate("categories", "name");
+        const websites = await Websitelist.find().populate("categories", "name").lean();
 
         if (!websites.length) {
             return res.status(404).json({ message: "No websites found." });
         }
+        // const logoUrl = user.imagePath ? `${req.protocol}://${req.get('host')}/${website.logoPath}` : null;
+
+        const websitesWithLogoURL = websites.map(({ logoPath, ...rest }) => ({
+            ...rest,
+            logoUrl: logoPath ? `${req.protocol}://${req.get('host')}/${logoPath}` : null
+        }));
 
         res.status(200).json({
             message: "Websites retrieved successfully.",
-            websites,
+            websites: websitesWithLogoURL,
         });
     } catch (error) {
         console.error("Error in getAllWebsites:", error);
@@ -52,15 +65,19 @@ export const getWebsiteById = async (req, res) => {
     try {
         const { websiteId } = req.params;
 
-        const website = await Websitelist.findById(websiteId).populate("categories", "name");
+        const website = await Websitelist.findById(websiteId).populate("categories", "name",);
 
         if (!website) {
             return res.status(404).json({ message: "Website not found." });
         }
 
+        const logoUrl = website.logoPath ? `${req.protocol}://${req.get('host')}/${website.logoPath}` : null;
+
+        delete website.logoPath;
         res.status(200).json({
             message: "Website retrieved successfully.",
             website,
+            logoUrl
         });
     } catch (error) {
         console.error("Error in getWebsiteById:", error);
@@ -79,13 +96,16 @@ export const updateWebsite = async (req, res) => {
         if (!website) {
             return res.status(404).json({ message: "Website not found." });
         }
+        const logoPath = req.file ? `uploads/${req.file.filename}` : null;
         website.websiteName = websiteName || website.websiteName;
+        console.log("file: website.controller.js:101 ~ updateWebsite ~ logoPath:", logoPath);
         website.websiteDescription = websiteDescription || website.websiteDescription;
         website.websiteURL = websiteURL || website.websiteURL;
         website.activeStatus = activeStatus !== undefined ? activeStatus : website.activeStatus;
+        if (logoPath) { website.logoPath = logoPath }
 
         if (categories) {
-            website.categories = categories;
+            website.categories = JSON.parse(categories);
         }
 
         await website.save();

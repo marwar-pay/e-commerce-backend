@@ -4,10 +4,10 @@ import jwt from "jsonwebtoken";
 const { Schema } = mongoose;
 
 const userSchema = new mongoose.Schema({
-  referenceWebsite: [{
+  referenceWebsite: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "Websitelist",
-  }],
+  },
   firstName: {
     type: String,
     required: true,
@@ -19,7 +19,6 @@ const userSchema = new mongoose.Schema({
   email: {
     type: String,
     required: true,
-    unique: true,
   },
   mobile: {
     type: String,
@@ -35,6 +34,18 @@ const userSchema = new mongoose.Schema({
     type: String,
     default: "user",
   },
+  company: {
+    type: String,
+    default: ""
+  },
+  gstInNumber: {
+    type: String,
+    default: ""
+  },
+  isRequestedForVendor: {
+    type: Boolean,
+    default: false
+  }
 });
 
 // Method to create an access token

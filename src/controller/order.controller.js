@@ -5,7 +5,7 @@ import Cart from "../models/Cart.model.js";
 // Create a new order
 export const createOrder = async (req, res) => {
     try {
-        const { products, shippingAddress } = req.body;
+        const { products, shippingAddress, type = null } = req.body;
         const customer = req.user?.id;
         const referenceWebsite = req.user?.referenceWebsite;
         if (!products || products.length === 0) {
@@ -29,13 +29,15 @@ export const createOrder = async (req, res) => {
         await newOrder.save();
         const identifier = `${customer}-${referenceWebsite}`;
 
-        const cart = await Cart.findOne({ identifier });
-        if (cart) {
-            cart.items = [];
-            cart.totalAmount = 0;
-            cart.isCheckedOut = true;
-            cart.lastUpdated = Date.now();
-            await cart.save();
+        if (type === 'cart') {
+            const cart = await Cart.findOne({ identifier });
+            if (cart) {
+                cart.items = [];
+                cart.totalAmount = 0;
+                cart.isCheckedOut = true;
+                cart.lastUpdated = Date.now();
+                await cart.save();
+            }
         }
         res.status(201).json({ message: "Order created successfully", order: newOrder });
     } catch (error) {
@@ -70,7 +72,7 @@ export const getOrdersByReferenceWebsite = async (req, res) => {
 
         // If minPrice or maxPrice is provided, add price filters
         if (minPrice || maxPrice) {
-            filter.totalAmount = filter.totalAmount || {}; 
+            filter.totalAmount = filter.totalAmount || {};
             if (minPrice) filter.totalAmount.$gte = parseFloat(minPrice);
             if (maxPrice) filter.totalAmount.$lte = parseFloat(maxPrice);
         }
@@ -151,45 +153,45 @@ export const getOrder = async (req, res) => {
 };
 
 // Update order status (for example, when an order is shipped or delivered)
-    export const updateOrderStatus = async (req, res) => {
-        try {
-          const { status, paymentStatus } = req.body;
-          if (status && !["pending", "processing", "shipped", "delivered", "cancelled"].includes(status)) {
+export const updateOrderStatus = async (req, res) => {
+    try {
+        const { status, paymentStatus } = req.body;
+        if (status && !["pending", "processing", "shipped", "delivered", "cancelled"].includes(status)) {
             return res.status(400).json({ message: "Invalid status" });
-          }
-          if (paymentStatus && !["pending", "completed", "failed"].includes(paymentStatus)) {
+        }
+        if (paymentStatus && !["pending", "completed", "failed"].includes(paymentStatus)) {
             return res.status(400).json({ message: "Invalid payment status" });
-          }
-          const updateFields = {};
-          if (status) updateFields.status = status;
-          if (paymentStatus) updateFields.paymentStatus = paymentStatus;
-          const order = await Order.findOneAndUpdate(
+        }
+        const updateFields = {};
+        if (status) updateFields.status = status;
+        if (paymentStatus) updateFields.paymentStatus = paymentStatus;
+        const order = await Order.findOneAndUpdate(
             { _id: req.params.id }, // Only update if the order is not deleted
             updateFields,
             { new: true } // Return the updated document
-          );
-          if (!order) {
+        );
+        if (!order) {
             return res.status(404).json({ message: "Order not found" });
-          }
-          res.status(200).json({ message: "Order updated successfully", order });
-        } catch (error) {
-          res.status(500).json({ message: "Failed to update order", error: error.message });
-          console.log(error)
         }
-      };
-      
+        res.status(200).json({ message: "Order updated successfully", order });
+    } catch (error) {
+        res.status(500).json({ message: "Failed to update order", error: error.message });
+        console.log(error)
+    }
+};
+
 
 // Delete an order
 export const deleteOrder = async (req, res) => {
     try {
-      const order = await Order.findByIdAndDelete(req.params.id);
-      if (!order) {
-        return res.status(404).json({ message: "Order not found" });
-      }
-      res.status(200).json({ message: "Order deleted successfully" });
+        const order = await Order.findByIdAndDelete(req.params.id);
+        if (!order) {
+            return res.status(404).json({ message: "Order not found" });
+        }
+        res.status(200).json({ message: "Order deleted successfully" });
     } catch (error) {
-      res.status(500).json({ message: "Failed to delete order", error: error.message });
+        res.status(500).json({ message: "Failed to delete order", error: error.message });
     }
-  };
-  
+};
+
 

@@ -30,7 +30,11 @@ const WebsiteListSchema = new Schema({
     categories: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: 'ProductCategory'
-    }]
+    }],
+    logoPath: {
+        type: String,
+        required: true,
+    }
 });
 
 const Websitelist = mongoose.model('Websitelist', WebsiteListSchema);

@@ -21,7 +21,8 @@ export const createProduct = async (req, res) => {
             category,
             description,
             size: productSize,
-            discount
+            discount,
+            addedBy: req.user?.id?.toString(),
         });
         await product.save();
         res.status(200).json({ message: "Product added successfully", product });
@@ -29,124 +30,16 @@ export const createProduct = async (req, res) => {
         res.status(500).json({ message: "Failed to add product", error: error.message });
     }
 };
-// export const getProducts = async (req, res) => {
-//     try {
-//         const {
-//             referenceWebsite,
-//             category,
-//             search,
-//             minPrice,
-//             maxPrice,
-//             sortBy = 'createdAt',
-//             sortOrder = 'desc',
-//             page = 1,
-//             limit = 10,
-//         } = req.query;
-
-//         if (!referenceWebsite) {
-//             return res.status(400).json({ message: "Reference website is required" });
-//         }
-
-//         const pageNumber = parseInt(page, 10) || 1;
-//         const pageSize = parseInt(limit, 10) || 10;
-
-//         // Build the match stage for filtering
-//         const matchStage = { referenceWebsite: new mongoose.Types.ObjectId(referenceWebsite) };
-
-//         if (category) {
-//             matchStage.category = new mongoose.Types.ObjectId(category);
-//         }
-
-//         if (search) {
-//             matchStage.$or = [
-//                 { productName: { $regex: search, $options: 'i' } },
-//                 { description: { $regex: search, $options: 'i' } },
-//             ];
-//         }
-
-//         if (minPrice || maxPrice) {
-//             matchStage.actualPrice = {};
-//             if (minPrice) matchStage.actualPrice.$gte = parseFloat(minPrice);
-//             if (maxPrice) matchStage.actualPrice.$lte = parseFloat(maxPrice);
-//         }
-
-//         const pipeline = [
-//             { $match: matchStage }, // Match documents based on filters
-//             {
-//                 $lookup: {
-//                     from: 'productcategories', // Ensure this matches your actual collection name
-//                     localField: 'category',
-//                     foreignField: '_id',
-//                     as: 'category',
-//                 },
-//             },
-//             {
-//                 $unwind: {
-//                     path: '$category',
-//                     preserveNullAndEmptyArrays: true, // Retain products without a category
-//                 },
-//             },
-//             {
-//                 $addFields: {
-//                     category: {
-//                         _id: '$category._id',
-//                         name: '$category.name',
-//                     },
-//                 },
-//             },
-//             {
-//                 $sort: { [sortBy]: sortOrder === 'asc' ? 1 : -1 },
-//             },
-//             {
-//                 $facet: {
-//                     metadata: [
-//                         { $count: 'totalDocuments' },
-//                         {
-//                             $addFields: {
-//                                 currentPage: pageNumber,
-//                                 pageSize,
-//                                 totalPages: { $ceil: { $divide: ['$totalDocuments', pageSize] } },
-//                             },
-//                         },
-//                     ],
-//                     products: [
-//                         { $skip: (pageNumber - 1) * pageSize },
-//                         { $limit: pageSize },
-//                     ],
-//                 },
-//             },
-//         ];
-
-//         const results = await Product.aggregate(pipeline);
-
-//         const metadata = results[0]?.metadata[0] || {
-//             totalDocuments: 0,
-//             currentPage: pageNumber,
-//             pageSize,
-//             totalPages: 0,
-//         };
-//         const products = results[0]?.products || [];
-
-//         res.status(200).json({
-//             products,
-//             pagination: metadata,
-//         });
-//     } catch (error) {
-//         console.error('Error in getProducts:', error.message);
-//         res.status(500).json({ message: 'Failed to retrieve products', error: error.message });
-//     }
-// };
-
 export const getProducts = async (req, res) => {
     try {
         const {
             referenceWebsite,
+            category,
             search,
-            category, // Specific category filter
             minPrice,
             maxPrice,
-            sortBy = 'createdAt', // Sorting field
-            sortOrder = 'desc',   // Sorting order
+            sortBy = 'createdAt',
+            sortOrder = 'desc',
             page = 1,
             limit = 10,
         } = req.query;
@@ -158,30 +51,17 @@ export const getProducts = async (req, res) => {
         const pageNumber = parseInt(page, 10) || 1;
         const pageSize = parseInt(limit, 10) || 10;
 
-        const website = await Websitelist.findById(referenceWebsite);
-        if (!website) {
-            return res.status(404).json({ message: "Reference website not found" });
-        }
+        const user = req.user?.id?.toString();
+        const role = req.user?.role;
 
-        if (website?.categories.length === 0) {
-            return res.status(200).json({
-                products: [],
-                pagination: {
-                    totalDocuments: 0,
-                    currentPage: pageNumber,
-                    pageSize,
-                    totalPages: 0,
-                },
-            });
-        }
-
-        const matchStage = {
-            category: { $in: website.categories }, // Only products in website's categories
-        };
+        // Build the match stage for filtering
+        const matchStage = { referenceWebsite: new mongoose.Types.ObjectId(referenceWebsite) };
 
         if (category) {
             matchStage.category = new mongoose.Types.ObjectId(category);
         }
+
+        if (role && role !== "admin") matchStage.addedBy = user;
 
         if (search) {
             matchStage.$or = [
@@ -197,10 +77,10 @@ export const getProducts = async (req, res) => {
         }
 
         const pipeline = [
-            { $match: matchStage },
+            { $match: matchStage }, // Match documents based on filters
             {
                 $lookup: {
-                    from: 'productcategories', // Name of the categories collection
+                    from: 'productcategories', // Ensure this matches your actual collection name
                     localField: 'category',
                     foreignField: '_id',
                     as: 'category',
@@ -209,7 +89,7 @@ export const getProducts = async (req, res) => {
             {
                 $unwind: {
                     path: '$category',
-                    preserveNullAndEmptyArrays: true,
+                    preserveNullAndEmptyArrays: true, // Retain products without a category
                 },
             },
             {
@@ -243,7 +123,6 @@ export const getProducts = async (req, res) => {
             },
         ];
 
-        // Execute the aggregation pipeline
         const results = await Product.aggregate(pipeline);
 
         const metadata = results[0]?.metadata[0] || {
@@ -254,7 +133,6 @@ export const getProducts = async (req, res) => {
         };
         const products = results[0]?.products || [];
 
-        // Return the response
         res.status(200).json({
             products,
             pagination: metadata,
@@ -264,6 +142,139 @@ export const getProducts = async (req, res) => {
         res.status(500).json({ message: 'Failed to retrieve products', error: error.message });
     }
 };
+
+// export const getProducts = async (req, res) => {
+//     try {
+//         const {
+//             referenceWebsite,
+//             search,
+//             category, // Specific category filter
+//             minPrice,
+//             maxPrice,
+//             sortBy = 'createdAt', // Sorting field
+//             sortOrder = 'desc',   // Sorting order
+//             page = 1,
+//             limit = 10,
+//         } = req.query;
+
+//         const user = req.user?.id?.toString();
+//         const role = req.user?.role;
+
+//         if (!referenceWebsite) {
+//             return res.status(400).json({ message: "Reference website is required" });
+//         }
+
+//         const pageNumber = parseInt(page, 10) || 1;
+//         const pageSize = parseInt(limit, 10) || 10;
+
+//         const website = await Websitelist.findById(referenceWebsite);
+//         if (!website) {
+//             return res.status(404).json({ message: "Reference website not found" });
+//         }
+
+//         if (website?.categories.length === 0) {
+//             return res.status(200).json({
+//                 products: [],
+//                 pagination: {
+//                     totalDocuments: 0,
+//                     currentPage: pageNumber,
+//                     pageSize,
+//                     totalPages: 0,
+//                 },
+//             });
+//         }
+
+//         const matchStage = {
+//             category: { $in: website.categories }, // Only products in website's categories
+//         };
+
+//         if (role && role !== "admin") matchStage.addedBy = user;
+
+//         if (category) {
+//             matchStage.category = new mongoose.Types.ObjectId(category);
+//         }
+
+//         if (search) {
+//             matchStage.$or = [
+//                 { productName: { $regex: search, $options: 'i' } },
+//                 { description: { $regex: search, $options: 'i' } },
+//             ];
+//         }
+
+//         if (minPrice || maxPrice) {
+//             matchStage.actualPrice = {};
+//             if (minPrice) matchStage.actualPrice.$gte = parseFloat(minPrice);
+//             if (maxPrice) matchStage.actualPrice.$lte = parseFloat(maxPrice);
+//         }
+
+//         const pipeline = [
+//             { $match: matchStage },
+//             {
+//                 $lookup: {
+//                     from: 'productcategories', // Name of the categories collection
+//                     localField: 'category',
+//                     foreignField: '_id',
+//                     as: 'category',
+//                 },
+//             },
+//             {
+//                 $unwind: {
+//                     path: '$category',
+//                     preserveNullAndEmptyArrays: true,
+//                 },
+//             },
+//             {
+//                 $addFields: {
+//                     category: {
+//                         _id: '$category._id',
+//                         name: '$category.name',
+//                     },
+//                 },
+//             },
+//             {
+//                 $sort: { [sortBy]: sortOrder === 'asc' ? 1 : -1 },
+//             },
+//             {
+//                 $facet: {
+//                     metadata: [
+//                         { $count: 'totalDocuments' },
+//                         {
+//                             $addFields: {
+//                                 currentPage: pageNumber,
+//                                 pageSize,
+//                                 totalPages: { $ceil: { $divide: ['$totalDocuments', pageSize] } },
+//                             },
+//                         },
+//                     ],
+//                     products: [
+//                         { $skip: (pageNumber - 1) * pageSize },
+//                         { $limit: pageSize },
+//                     ],
+//                 },
+//             },
+//         ];
+
+//         // Execute the aggregation pipeline
+//         const results = await Product.aggregate(pipeline);
+
+//         const metadata = results[0]?.metadata[0] || {
+//             totalDocuments: 0,
+//             currentPage: pageNumber,
+//             pageSize,
+//             totalPages: 0,
+//         };
+//         const products = results[0]?.products || [];
+
+//         // Return the response
+//         res.status(200).json({
+//             products,
+//             pagination: metadata,
+//         });
+//     } catch (error) {
+//         console.error('Error in getProducts:', error.message);
+//         res.status(500).json({ message: 'Failed to retrieve products', error: error.message });
+//     }
+// };
 
 export const getProductDetail = async (req, res) => {
     try {

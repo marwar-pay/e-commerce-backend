@@ -14,26 +14,30 @@ export const registerUser = async (req, res) => {
     if (!firstName || !lastName || !email || !password || !referenceWebsite) {
       return res.status(400).json({ msg: "All fields are required." });
     }
-    const existingUser = await User.findOne({ email });
+    const existingUser = await User.findOne({ email, referenceWebsite });
     if (existingUser) {
-      if (!existingUser.referenceWebsite.includes(referenceWebsite)) {
-        existingUser.referenceWebsite.push(referenceWebsite);
-        await existingUser.save();
-        return res.status(200).json({
-          msg: "Reference website added to existing user.",
-          userData: existingUser,
-        });
-      } else {
-        return res.status(400).json({ msg: "User already registered with this website." });
-      }
+      return res.status(400).json({ msg: "User already registered with this website." });
     }
+
+    // if (existingUser) {
+    //   if (!existingUser.referenceWebsite.includes(referenceWebsite)) {
+    //     existingUser.referenceWebsite.push(referenceWebsite);
+    //     await existingUser.save();
+    //     return res.status(200).json({
+    //       msg: "Reference website added to existing user.",
+    //       userData: existingUser,
+    //     });
+    //   } else {
+    //     return res.status(400).json({ msg: "User already registered with this website." });
+    //   }
+    // }
     const hashPassword = await bcrypt.hash(password, 10);
     const userData = await User.create({
       firstName,
       lastName,
       email,
       password: hashPassword,
-      referenceWebsite: [referenceWebsite],
+      referenceWebsite,
       mobile,
       address,
       role: role || "user",
@@ -77,16 +81,16 @@ export const logInUser = async (req, res) => {
       return res.status(400).json({ msg: "Email, password, and reference website are required." });
     }
 
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ email, referenceWebsite });
     if (!user) {
       return res.status(400).json({ msg: "No account found with this email. Please sign up." });
     }
     // Check if the user is registered for the given reference website
-    if (!user.referenceWebsite.includes(referenceWebsite)) {
-      return res.status(400).json({
-        msg: `You need to register on ${referenceWebsite} before logging in.`,
-      });
-    }
+    // if (!user.referenceWebsite.includes(referenceWebsite)) {
+    //   return res.status(400).json({
+    //     msg: `You need to register on ${referenceWebsite} before logging in.`,
+    //   });
+    // }
 
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
@@ -129,7 +133,18 @@ export const adminLogin = async (req, res) => {
     if (!email || !password) {
       return res.status(400).json({ msg: "Email, password, and reference website are required." });
     }
-    const user = await User.findOne({ email });
+    // const user = await User.findOne({ email,  });
+
+    let user = await User.findOne({
+      email, role: "super-admin"
+    })
+
+    user ??= await User.findOne({
+      email: email,
+      role: { $in: ['admin', 'vendor'] }
+    });
+    console.log("file: auth.controller.js:141 ~ adminLogin ~ user:", user);
+
     if (!user) {
       return res.status(400).json({ msg: "No account found with this email. Please sign up." });
     }
@@ -157,7 +172,7 @@ export const adminLogin = async (req, res) => {
       refreshToken,
     });
   } catch (error) {
-    console.error(`Error: ${error.message}`);
+    console.log("file: auth.controller.js:170 ~ adminLogin ~ error:", error);
     res.status(500).json({ msg: "Login failed", error: error.message });
   }
 };
@@ -264,7 +279,7 @@ export const getAllUsers = async (req, res) => {
   try {
     const {
       referenceWebsite, // Array of ObjectIds
-      search, 
+      search,
       sortField = "firstName",
       sortOrder = "asc",
       page = 1,

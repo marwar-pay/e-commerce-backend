@@ -1,10 +1,14 @@
 import Order from "../models/Order.model.js";
 import User from "../models/User.model.js";
 import Product from "../models/Product.model.js";
+import mongoose from "mongoose";
 
 export const getDashboardData = async (req, res) => {
     try {
+        const user = req.user;
+
         const userAggregation = await User.aggregate([
+            ...(user.role === "super-admin" ? [] : [{ $match: { role: "user", referenceWebsite: new mongoose.Types.ObjectId(user.referenceWebsite) } }]),
             {
                 $unwind: "$referenceWebsite", // Unwind to group by reference website
             },
@@ -34,6 +38,7 @@ export const getDashboardData = async (req, res) => {
         ]);
 
         const productAggregation = await Product.aggregate([
+            ...(user.role === "super-admin" ? [] : [{ $match: { referenceWebsite: new mongoose.Types.ObjectId(user.referenceWebsite) } }]),
             {
                 $lookup: {
                     from: "productcategories", // Join with ProductCategory collection
@@ -71,6 +76,7 @@ export const getDashboardData = async (req, res) => {
         ]);
 
         const data = await Order.aggregate([
+            ...(user.role === "super-admin" ? [] : [{ $match: { referenceWebsite: new mongoose.Types.ObjectId(user.referenceWebsite) } }]),
             {
                 $facet: {
                     byStatus: [
