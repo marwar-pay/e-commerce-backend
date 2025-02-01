@@ -30,17 +30,21 @@ export class VendorController {
     static async AcceptVendorRequest(req, res) {
         try {
             const { userId } = req.params;
-            const { accept } = req.body;
+            const { accept, commissionRate } = req.body;
             const user = req.user;
             if (user.role !== 'admin') {
                 return res.status(403).json({ message: 'Forbidden. Only admins can accept vendor requests.' });
             }
 
+            if (accept && !commissionRate) {
+                return res.status(400).json({ message: 'Commission rate is required to accept vendor request.' });
+            }
+
             const updatedUser = await User.findByIdAndUpdate(
                 userId,
                 accept
-                    ? { role: 'vendor' } // If accepted, update role to "vendor"
-                    : { isRequestedForVendor: false, gstInNumber: '', company: '' }, // If rejected, reset request fields
+                    ? { role: 'vendor', commissionRate }
+                    : { isRequestedForVendor: false, gstInNumber: '', company: '' },
                 { new: true }
             );
 
@@ -49,7 +53,7 @@ export class VendorController {
             }
 
             res.status(200).json({ message: 'Vendor request accepted.' });
-            
+
         } catch (error) {
             res.status(500).json({ message: 'Failed to accept vendor request.', error: error.message });
         }

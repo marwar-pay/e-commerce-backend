@@ -1,6 +1,7 @@
 import Order from "../models/Order.model.js";
 import Product from "../models/Product.model.js"; // Importing Product model to get product details
 import Cart from "../models/Cart.model.js";
+import User from "../models/User.model.js";
 
 // Create a new order
 export const createOrder = async (req, res) => {
@@ -12,17 +13,44 @@ export const createOrder = async (req, res) => {
             return res.status(400).json({ message: "At least one product is required" });
         }
         let totalAmount = 0;
+        let updatedProducts = products;
         for (let productItem of products) {
             const product = await Product.findById(productItem.product);
             if (!product) {
                 return res.status(400).json({ message: `Product not found for ID: ${productItem.product}` });
             }
+
+            await User.findByIdAndUpdate(
+                product.addedBy,
+                [
+                    {
+                        $set: {
+                            wallet: {
+                                $add: [
+                                    "$wallet",
+                                    {
+                                        $subtract: [
+                                            product.actualPrice,
+                                            { $divide: [{ $multiply: [product.actualPrice, "$commissionRate"] }, 100] }
+                                        ]
+                                    }
+                                ]
+                            }
+                        }
+                    }
+                ],
+                { new: true }
+            );
+
+            const index = updatedProducts.findIndex(x => x.product === product._id.toString());
+            updatedProducts[index].owner = product.addedBy;
+
             totalAmount += product.actualPrice * productItem.quantity;
         }
         const newOrder = new Order({
             referenceWebsite,
             customer,
-            products,
+            products: updatedProducts,
             totalAmount,
             shippingAddress,
         });

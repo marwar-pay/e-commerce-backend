@@ -37,8 +37,23 @@ export const getDashboardData = async (req, res) => {
             },
         ]);
 
+        const productMatchConditions = [];
+
+        if (user.role === "admin") {
+            productMatchConditions.push({
+                $match: { referenceWebsite: new mongoose.Types.ObjectId(user.referenceWebsite) }
+            });
+        } else if (user.role !== "super-admin") { // Applies to non-super-admin & non-admin roles
+            productMatchConditions.push({
+                $match: {
+                    referenceWebsite: new mongoose.Types.ObjectId(user.referenceWebsite),
+                    addedBy: new mongoose.Types.ObjectId(user.id?.toString())
+                }
+            });
+        }
+
         const productAggregation = await Product.aggregate([
-            ...(user.role === "super-admin" ? [] : [{ $match: { referenceWebsite: new mongoose.Types.ObjectId(user.referenceWebsite) } }]),
+            ...productMatchConditions,
             {
                 $lookup: {
                     from: "productcategories", // Join with ProductCategory collection
@@ -75,8 +90,33 @@ export const getDashboardData = async (req, res) => {
             },
         ]);
 
+        const orderMatchConditions = [];
+
+        if (user.role === "admin") {
+            orderMatchConditions.push({
+                $match: { referenceWebsite: new mongoose.Types.ObjectId(user.referenceWebsite) }
+            });
+        } else if (user.role !== "super-admin") {
+            orderMatchConditions.push({
+                $match: {
+                    referenceWebsite: new mongoose.Types.ObjectId(user.referenceWebsite),
+                    products: {
+                        $elemMatch: { owner: new mongoose.Types.ObjectId(user.id.toString()) }
+                    }
+                }
+            });
+        }
+
         const data = await Order.aggregate([
-            ...(user.role === "super-admin" ? [] : [{ $match: { referenceWebsite: new mongoose.Types.ObjectId(user.referenceWebsite) } }]),
+            ...orderMatchConditions,
+            {
+                $unwind: "$products" // Flatten products array
+            },
+            {
+                $match: {
+                    "products.owner": new mongoose.Types.ObjectId(req.user.id.toString()) // Filter only this owner's products
+                }
+            },
             {
                 $facet: {
                     byStatus: [
@@ -84,7 +124,7 @@ export const getDashboardData = async (req, res) => {
                             $group: {
                                 _id: "$status", // Group by order status
                                 totalOrders: { $sum: 1 }, // Count of orders
-                                totalAmount: { $sum: "$totalAmount" }, // Sum of total amounts
+                                totalAmount: { $sum: "$products.total" }, // Sum of total amounts
                             },
                         },
                     ],
@@ -93,7 +133,7 @@ export const getDashboardData = async (req, res) => {
                             $group: {
                                 _id: "$paymentStatus", // Group by payment status
                                 totalOrders: { $sum: 1 }, // Count of orders
-                                totalAmount: { $sum: "$totalAmount" }, // Sum of total amounts
+                                totalAmount: { $sum: "$products.total" }, // Sum of total amounts
                             },
                         },
                     ],
@@ -102,7 +142,7 @@ export const getDashboardData = async (req, res) => {
                             $group: {
                                 _id: null,
                                 totalOrders: { $sum: 1 }, // Total count of all orders
-                                totalAmount: { $sum: "$totalAmount" }, // Total sum of all amounts
+                                totalAmount: { $sum: "$products.total" }, // Total sum of all amounts
                             },
                         },
                     ],

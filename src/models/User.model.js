@@ -45,7 +45,17 @@ const userSchema = new mongoose.Schema({
   isRequestedForVendor: {
     type: Boolean,
     default: false
-  }
+  },
+  commissionRate: {
+    type: Number,
+    default: 0,
+    min: 0,
+    max: 100
+  },
+  wallet: {
+    type: Number,
+    default: 0,
+  },
 });
 
 // Method to create an access token

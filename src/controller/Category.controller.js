@@ -1,21 +1,31 @@
 import ProductCategory from '../models/Catergroy.model.js';
+import Websitelist from '../models/Website.model.js';
 
 
 export const createCategory = async (req, res) => {
     try {
-        const { name, description } = req.body;
+        const { name, description, referenceWebsite } = req.body;
+
         if (!name) {
             return res.status(400).json({ message: 'Category name is required.' });
         }
-        const existingCategory = await ProductCategory.findOne({ name });
-        if (existingCategory) {
+
+        let category = await ProductCategory.findOne({ name });
+
+        if (category && !referenceWebsite) {
             return res.status(400).json({ message: 'Category with this name already exists.' });
         }
-        const category = new ProductCategory({
-            name,
-            description,
-        });
-        await category.save();
+
+        if (!category) {
+            category = new ProductCategory({ name, description });
+            await category.save();
+        }
+
+        if (referenceWebsite) {
+            await Websitelist.findByIdAndUpdate(referenceWebsite, {
+                $addToSet: { categories: category._id }
+            });
+        }
         res.status(200).json({
             message: 'Category created successfully.',
             category,

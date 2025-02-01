@@ -18,7 +18,11 @@ const orderProductSchema = new mongoose.Schema(
         },
         total: {
             type: Number,
-            required: true, 
+            required: true,
+        },
+        owner: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "User",
         },
     },
     { _id: false }

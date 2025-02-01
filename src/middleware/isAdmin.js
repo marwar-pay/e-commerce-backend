@@ -22,7 +22,7 @@ export const isAdmin = async (req, res, next) => {
       return res.status(404).json({ message: "User not found." });
     }
 
-    if (user.role === "super-admin" || user.role === 'admin') {
+    if (user.role === "super-admin" || user.role === 'admin' || user.role === "vendor") {
       req.user = user;
       next(); // Proceed to the next middleware or route handler
       return;

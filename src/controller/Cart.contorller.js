@@ -26,8 +26,8 @@ export const addItemToCart = async (req, res) => {
         if (!cart) {
             cart = new Cart({
                 identifier,
-                items: [{ product: productId, quantity, price: product.price, total: product.price * quantity }],
-                totalAmount: product.price * quantity,
+                items: [{ product: productId, quantity, price: product.price, total: product.actualPrice * quantity }],
+                totalAmount: product.actualPrice * quantity,
             });
         } else {
             const existingItemIndex = cart.items.findIndex(item => item.product.toString() === productId);
@@ -36,7 +36,7 @@ export const addItemToCart = async (req, res) => {
                 item.quantity += quantity;
                 item.total = item.quantity * item.price;
             } else {
-                cart.items.push({ product: productId, quantity, price: product.price, total: product.price * quantity });
+                cart.items.push({ product: productId, quantity, price: product.price, total: product.actualPrice * quantity });
             }
         }
         cart.totalAmount = cart.items.reduce((total, item) => total + item.total, 0);
@@ -53,12 +53,21 @@ export const updateCartItemQuantity = async (req, res) => {
     try {
         const { productId, quantity } = req.body;
 
-        const userId = req.user?.id;
-        const referenceWebsite = req.user?.referenceWebsite;
+        // Ensure required fields are provided
+        if (!req.user?.id || !req.user?.referenceWebsite || !productId || quantity === undefined) {
+            return res.status(400).json({ message: 'User, Product ID, and Quantity are required.' });
+        }
+
+        const userId = req.user.id;
+        const referenceWebsite = req.user.referenceWebsite;
         const identifier = `${userId}-${referenceWebsite}`;
 
-        if (!identifier || !productId || !quantity) {
-            return res.status(400).json({ message: 'Identifier, Product ID, and Quantity are required.' });
+        console.log(`Updating cart for identifier: ${identifier}, Product: ${productId}, Quantity: ${quantity}`);
+
+        // Ensure quantity is a valid number
+        const parsedQuantity = Number(quantity);
+        if (isNaN(parsedQuantity) || parsedQuantity <= 0) {
+            return res.status(400).json({ message: 'Quantity must be a valid positive number.' });
         }
 
         const cart = await Cart.findOne({ identifier });
@@ -72,16 +81,43 @@ export const updateCartItemQuantity = async (req, res) => {
         }
 
         const item = cart.items[itemIndex];
-        item.quantity = quantity;
-        item.total = item.quantity * item.price;
-        cart.totalAmount = cart.items.reduce((total, item) => total + item.total, 0);
+
+        // Ensure actualPrice is a valid number
+        if (!item.hasOwnProperty('actualPrice')) {
+            return res.status(400).json({ message: 'Product actualPrice is missing from the cart item.' });
+        }
+
+        const actualPrice = Number(item.actualPrice);
+        if (isNaN(actualPrice) || actualPrice < 0) {
+            return res.status(400).json({ message: `Invalid actual price: ${item.actualPrice}` });
+        }
+
+        // Calculate and validate total price
+        const totalPrice = parsedQuantity * actualPrice;
+        if (isNaN(totalPrice)) {
+            return res.status(500).json({ message: `Failed to calculate total price: ${parsedQuantity} * ${actualPrice} = NaN` });
+        }
+
+        // Update quantity and total price
+        item.quantity = parsedQuantity;
+        item.total = totalPrice;
+
+        console.log(`Updated item: Quantity = ${item.quantity}, Total = ${item.total}`);
+
+        // Recalculate total cart amount
+        const totalAmount = cart.items.reduce((total, item) => total + (Number(item.total) || 0), 0);
+        cart.totalAmount = totalAmount;
+
         await cart.save();
+
         res.status(200).json({ message: 'Cart item updated successfully', cart });
     } catch (error) {
-        console.error(error);
+        console.error('Error updating cart item:', error);
         res.status(500).json({ message: 'Failed to update cart item', error: error.message });
     }
 };
+
+
 
 // 3. Remove Item from Cart
 export const removeItemFromCart = async (req, res) => {
