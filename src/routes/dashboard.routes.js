@@ -97,26 +97,28 @@ export const getDashboardData = async (req, res) => {
                 $match: { referenceWebsite: new mongoose.Types.ObjectId(user.referenceWebsite) }
             });
         } else if (user.role !== "super-admin") {
-            orderMatchConditions.push({
-                $match: {
-                    referenceWebsite: new mongoose.Types.ObjectId(user.referenceWebsite),
-                    products: {
-                        $elemMatch: { owner: new mongoose.Types.ObjectId(user.id.toString()) }
+            orderMatchConditions.push(
+                {
+                    $match: {
+                        referenceWebsite: new mongoose.Types.ObjectId(user.referenceWebsite),
+                        products: {
+                            $elemMatch: { owner: new mongoose.Types.ObjectId(user.id.toString()) }
+                        }
                     }
-                }
-            });
+                },
+                {
+                    $unwind: "$products"
+                },
+                {
+                    $match: {
+                        "products.owner": new mongoose.Types.ObjectId(req.user.id.toString()) // Filter only this 
+                    }
+                },
+            );
         }
 
         const data = await Order.aggregate([
             ...orderMatchConditions,
-            {
-                $unwind: "$products" // Flatten products array
-            },
-            {
-                $match: {
-                    "products.owner": new mongoose.Types.ObjectId(req.user.id.toString()) // Filter only this owner's products
-                }
-            },
             {
                 $facet: {
                     byStatus: [
