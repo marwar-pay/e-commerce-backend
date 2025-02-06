@@ -30,6 +30,6 @@ export const isAdmin = async (req, res, next) => {
     return res.status(403).json({ message: "Access denied. Admins only." });
   } catch (error) {
     console.error("Error verifying super-admin:", error.message);
-    res.status(500).json({ message: "Internal server error", error: error.message });
+    res.status(401).json({ message: "User not authorized", error: error.message });
   }
 };

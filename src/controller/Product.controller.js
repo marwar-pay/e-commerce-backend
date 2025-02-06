@@ -61,7 +61,7 @@ export const getProducts = async (req, res) => {
             matchStage.category = new mongoose.Types.ObjectId(category);
         }
 
-        if (role && role !== "admin" && role !== "super-admin") matchStage.addedBy = user;
+        if (role && role !== "admin" && role !== "super-admin") matchStage.addedBy = new mongoose.Types.ObjectId(user);
 
         if (search) {
             matchStage.$or = [

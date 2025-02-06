@@ -120,6 +120,9 @@ export const getDashboardData = async (req, res) => {
         const data = await Order.aggregate([
             ...orderMatchConditions,
             {
+                $unwind: "$products"
+            },
+            {
                 $facet: {
                     byStatus: [
                         {
