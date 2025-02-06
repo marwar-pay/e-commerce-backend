@@ -2,6 +2,7 @@ import Order from "../models/Order.model.js";
 import Product from "../models/Product.model.js"; // Importing Product model to get product details
 import Cart from "../models/Cart.model.js";
 import User from "../models/User.model.js";
+import mongoose from "mongoose";
 
 // Create a new order
 export const createOrder = async (req, res) => {
@@ -184,27 +185,36 @@ export const getOrder = async (req, res) => {
 export const updateOrderStatus = async (req, res) => {
     try {
         const { status, paymentStatus } = req.body;
+        const { id } = req.params;
+
+        // Validate if id is a valid MongoDB ObjectId
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+            return res.status(400).json({ message: "Invalid order ID" });
+        }
+
+        // Validate status values
         if (status && !["pending", "processing", "shipped", "delivered", "cancelled"].includes(status)) {
             return res.status(400).json({ message: "Invalid status" });
         }
         if (paymentStatus && !["pending", "completed", "failed"].includes(paymentStatus)) {
             return res.status(400).json({ message: "Invalid payment status" });
         }
+
         const updateFields = {};
         if (status) updateFields.status = status;
         if (paymentStatus) updateFields.paymentStatus = paymentStatus;
-        const order = await Order.findOneAndUpdate(
-            { _id: req.params.id }, // Only update if the order is not deleted
-            updateFields,
-            { new: true } // Return the updated document
-        );
+
+        // Find and update order
+        const order = await Order.findByIdAndUpdate(id, updateFields, { new: true });
+
         if (!order) {
             return res.status(404).json({ message: "Order not found" });
         }
-        res.status(200).json({ message: "Order updated successfully", order });
+
+        return res.status(200).json({ message: "Order updated successfully", order });
     } catch (error) {
-        res.status(500).json({ message: "Failed to update order", error: error.message });
-        console.log(error)
+        console.error("Error updating order:", error);
+        return res.status(500).json({ message: "Failed to update order", error: error.message });
     }
 };
 
