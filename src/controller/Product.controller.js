@@ -30,6 +30,36 @@ export const createProduct = async (req, res) => {
         res.status(500).json({ message: "Failed to add product", error: error.message });
     }
 };
+
+export const createMultipleProducts = async (req, res) => {
+    try {
+        const { products } = req.body;
+
+        if (!Array.isArray(products) || products.length === 0) {
+            return res.status(400).json({ message: "Invalid input. Please provide an array of products." });
+        }
+        const formattedProducts = products.map(product => ({
+            referenceWebsite: "6788b0054c4a217090bf6636", 
+            productName: product.productName,
+            images: typeof product.images === "string" ? [product.images] : [],
+            price: product.price,
+            actualPrice: product.actualPrice,
+            category: product.category,
+            description: product.description,
+            size: product.size || "M", // Default size is "M" if not provided
+            discount: product.discount,
+            addedBy: "679c5cc89e0012636ffef9ed"
+        }));
+        const result = await Product.insertMany(formattedProducts);
+        res.status(200).json({
+            message: `${result.length} products added successfully`,
+            products: result,
+        });
+    } catch (error) {
+        res.status(500).json({ message: "Failed to add products", error: error.message });
+    }
+};
+
 export const getProducts = async (req, res) => {
     try {
         const {

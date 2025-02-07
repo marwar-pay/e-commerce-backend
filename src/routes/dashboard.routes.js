@@ -7,6 +7,7 @@ export const getDashboardData = async (req, res) => {
     try {
         const user = req.user;
 
+        // User Aggregation
         const userAggregation = await User.aggregate([
             ...(user.role === "super-admin" ? [] : [{ $match: { role: "user", referenceWebsite: new mongoose.Types.ObjectId(user.referenceWebsite) } }]),
             {
@@ -37,6 +38,7 @@ export const getDashboardData = async (req, res) => {
             },
         ]);
 
+        // Product Aggregation
         const productMatchConditions = [];
 
         if (user.role === "admin") {
@@ -90,6 +92,7 @@ export const getDashboardData = async (req, res) => {
             },
         ]);
 
+        // Order Aggregation
         const orderMatchConditions = [];
 
         if (user.role === "admin") {
@@ -97,31 +100,18 @@ export const getDashboardData = async (req, res) => {
                 $match: { referenceWebsite: new mongoose.Types.ObjectId(user.referenceWebsite) }
             });
         } else if (user.role !== "super-admin") {
-            orderMatchConditions.push(
-                {
-                    $match: {
-                        referenceWebsite: new mongoose.Types.ObjectId(user.referenceWebsite),
-                        products: {
-                            $elemMatch: { owner: new mongoose.Types.ObjectId(user.id.toString()) }
-                        }
+            orderMatchConditions.push({
+                $match: {
+                    referenceWebsite: new mongoose.Types.ObjectId(user.referenceWebsite),
+                    products: {
+                        $elemMatch: { owner: new mongoose.Types.ObjectId(user.id.toString()) }
                     }
-                },
-                {
-                    $unwind: "$products"
-                },
-                {
-                    $match: {
-                        "products.owner": new mongoose.Types.ObjectId(req.user.id.toString()) // Filter only this 
-                    }
-                },
-            );
+                }
+            });
         }
 
         const data = await Order.aggregate([
             ...orderMatchConditions,
-            {
-                $unwind: "$products"
-            },
             {
                 $facet: {
                     byStatus: [
@@ -129,7 +119,7 @@ export const getDashboardData = async (req, res) => {
                             $group: {
                                 _id: "$status", // Group by order status
                                 totalOrders: { $sum: 1 }, // Count of orders
-                                totalAmount: { $sum: "$products.total" }, // Sum of total amounts
+                                totalAmount: { $sum: "$totalAmount" }, // Sum of totalAmount for each status
                             },
                         },
                     ],
@@ -138,7 +128,7 @@ export const getDashboardData = async (req, res) => {
                             $group: {
                                 _id: "$paymentStatus", // Group by payment status
                                 totalOrders: { $sum: 1 }, // Count of orders
-                                totalAmount: { $sum: "$products.total" }, // Sum of total amounts
+                                totalAmount: { $sum: "$totalAmount" }, // Sum of totalAmount for each payment status
                             },
                         },
                     ],
@@ -147,7 +137,7 @@ export const getDashboardData = async (req, res) => {
                             $group: {
                                 _id: null,
                                 totalOrders: { $sum: 1 }, // Total count of all orders
-                                totalAmount: { $sum: "$products.total" }, // Total sum of all amounts
+                                totalAmount: { $sum: "$totalAmount" }, // Total sum of all totalAmount
                             },
                         },
                     ],
@@ -160,6 +150,8 @@ export const getDashboardData = async (req, res) => {
             byPaymentStatus: data[0]?.byPaymentStatus || [],
             overall: data[0]?.overall[0] || { totalOrders: 0, totalAmount: 0 },
         };
+
+        // Send Response
         res.status(200).json({
             success: true,
             data: {
@@ -177,4 +169,3 @@ export const getDashboardData = async (req, res) => {
         });
     }
 };
-

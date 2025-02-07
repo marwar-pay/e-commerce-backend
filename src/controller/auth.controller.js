@@ -143,7 +143,6 @@ export const adminLogin = async (req, res) => {
       email: email,
       role: { $in: ['admin', 'vendor'] }
     });
-    console.log("file: auth.controller.js:141 ~ adminLogin ~ user:", user);
 
     if (!user) {
       return res.status(400).json({ msg: "No account found with this email. Please sign up." });
@@ -246,8 +245,6 @@ export const editProfile = async (req, res) => {
   }
 };
 
-
-
 export const getUserDetails = async (req, res) => {
   try {
     const user = req.user;
@@ -284,6 +281,7 @@ export const getAllUsers = async (req, res) => {
       sortOrder = "asc",
       page = 1,
       limit = 10,
+      role,
     } = req.query;
 
     const pageNumber = parseInt(page, 10) || 1;
@@ -294,6 +292,9 @@ export const getAllUsers = async (req, res) => {
       filter.referenceWebsite = {
         $in: referenceWebsite.split(",").map((id) => new mongoose.Types.ObjectId(id)),
       };
+    }
+    if(role){
+      filter.role = role
     }
     if (search) {
       const regex = new RegExp(search, "i"); // Case-insensitive search
