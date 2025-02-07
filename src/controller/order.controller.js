@@ -167,7 +167,7 @@ export const getOrdersByUser = async (req, res) => {
 // Get a specific order by ID
 export const getOrder = async (req, res) => {
     try {
-        const order = await Order.findOne({ _id: req.params.id, isDeleted: false }) // Exclude deleted order
+        const order = await Order.findOne({ _id: req.params.id }) 
             .populate("customer", "firstName lastName email mobile")
             .populate("products.product", "productName price image");
 
