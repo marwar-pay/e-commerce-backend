@@ -10,6 +10,8 @@ import productRoutes from "./src/routes/product.routes.js";
 import websiteRoutes from "./src/routes/website.routes.js";
 import cartRoutes from "./src/routes/cart.routes.js";
 import catergoriesRoutes from "./src/routes/category.routes.js"
+import policyRoutes from "./src/routes/policy.routes.js"
+
 import { phonePeController } from "./src/routes/payment.routes.js";
 import { getDashboardData } from "./src/routes/dashboard.routes.js";
 import { fileURLToPath } from "url";
@@ -36,6 +38,8 @@ app.use("/api/cart", cartRoutes);
 app.use('/api/categories', catergoriesRoutes);
 app.use("/api/product", productRoutes);
 app.use("/api/order", orderRoutes);
+app.use("/api/policy",policyRoutes)
+
 app.post("/api/phonepe-payment", phonePeController)
 app.get("/api/dashboard", isAdmin, getDashboardData)
 app.use("/api", vendorRoutes)
