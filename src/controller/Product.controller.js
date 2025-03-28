@@ -68,8 +68,8 @@ export const getProducts = async (req, res) => {
             search,
             minPrice,
             maxPrice,
-            minDiscount,
-            maxDiscount,
+            minDiscount = 0,
+            maxDiscount=100,
             sortBy = 'createdAt',
             sortOrder = 'desc',
             page = 1,
@@ -109,8 +109,8 @@ export const getProducts = async (req, res) => {
         }
         if (minDiscount || maxDiscount) {
             matchStage.discount = {};
-            if (minPrice) matchStage.discount.$gte = parseFloat(minPrice);
-            if (maxPrice) matchStage.discount.$lte = parseFloat(maxPrice);
+            if (minDiscount) matchStage.discount.$gte = parseFloat(minDiscount);
+            if (maxDiscount) matchStage.discount.$lte = parseFloat(maxDiscount);
         }
 
         const pipeline = [
