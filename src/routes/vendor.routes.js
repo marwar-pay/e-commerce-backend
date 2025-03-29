@@ -12,8 +12,8 @@ routes.route("/update-vendor-request/:userId").patch(isAdmin, VendorController.A
 
 routes.route("/incoming-vendor-requests").get(isAdmin, VendorController.incomingVendorRequests);
 
-routes.route("/register").post(Vendors.vendorRegister);
+routes.route("/vendor-register").post(Vendors.vendorRegister);
 
-routes.route("/login").post(Vendors.vendorLogin);
+routes.route("/vendor-login").post(Vendors.vendorLogin);
 
 export default routes;
