@@ -1,5 +1,6 @@
 import jwt from "jsonwebtoken";
 import User from "../models/User.model.js";
+import Vendor from "../models/Vendor.model.js";
 
 export const isAdmin = async (req, res, next) => {
   try {
@@ -16,7 +17,8 @@ export const isAdmin = async (req, res, next) => {
       return res.status(401).json({ message: "Unauthorized. Invalid token." });
     }
 
-    const user = await User.findById(decoded.id);
+    let user = await User.findById(decoded.id);
+    user ??= await Vendor.findById(decoded.id);
 
     if (!user) {
       return res.status(404).json({ message: "User not found." });

@@ -1,5 +1,6 @@
 import express from 'express'
 import { VendorController } from '../controller/vendor.controller.js';
+import { VendorController as Vendors } from '../controller/Vendor.controller.js'
 import { isAdmin } from '../middleware/isAdmin.js';
 import { verifyToken } from '../middleware/verifyToken.js';
 
@@ -10,5 +11,9 @@ routes.route("/vendor-request").patch(verifyToken, VendorController.VendorReques
 routes.route("/update-vendor-request/:userId").patch(isAdmin, VendorController.AcceptVendorRequest);
 
 routes.route("/incoming-vendor-requests").get(isAdmin, VendorController.incomingVendorRequests);
+
+routes.route("/register").post(Vendors.vendorRegister);
+
+routes.route("/login").post(Vendors.vendorLogin);
 
 export default routes;
