@@ -18,6 +18,7 @@ const vendorSchema = new mongoose.Schema(
         username: {
             type: String,
             required: true,
+            unique: true
         },
         password: {
             type: String,
@@ -34,22 +35,9 @@ const vendorSchema = new mongoose.Schema(
             type: Number,
             default: 0
         },
-        pendingBalance: {
-            type: Number,
-            default: 0
-        },
-        orderCompletedBalance: {
-            type: Number,
-            default: 0
-        },
-        totalEarnings: {
-            type: Number,
-            default: 0
-        },
         referenceWebsite: {
             type: mongoose.Schema.Types.ObjectId,
             ref: "Websitelist",
-            required: true
         },
         role: {
             type: String,

@@ -3,6 +3,7 @@ import Product from "../models/Product.model.js"; // Importing Product model to 
 import Cart from "../models/Cart.model.js";
 import User from "../models/User.model.js";
 import mongoose from "mongoose";
+import Vendor from "../models/Vendor.model.js";
 
 // Create a new order
 export const createOrder = async (req, res) => {
@@ -167,7 +168,7 @@ export const getOrdersByUser = async (req, res) => {
 // Get a specific order by ID
 export const getOrder = async (req, res) => {
     try {
-        const order = await Order.findOne({ _id: req.params.id }) 
+        const order = await Order.findOne({ _id: req.params.id })
             .populate("customer", "firstName lastName email mobile")
             .populate("products.product", "productName price image");
 
@@ -209,6 +210,22 @@ export const updateOrderStatus = async (req, res) => {
 
         if (!order) {
             return res.status(404).json({ message: "Order not found" });
+        }
+
+        if (paymentStatus === "completed") {
+            const products = order.products
+            for (const product of products) {
+                const ownerId = product.owner;
+                await Vendor.findByIdAndUpdate(
+                    ownerId,
+                    {
+                        $inc: {
+                            currentBalance: product.quantity * product.price,
+                        },
+                    },
+                    { new: true }
+                );
+            }
         }
 
         return res.status(200).json({ message: "Order updated successfully", order });
