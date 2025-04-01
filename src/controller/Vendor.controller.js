@@ -150,4 +150,64 @@ export class VendorController {
             res.status(500).json({ message: error.message });
         }
     }
+    static async getVendorOrders(req, res) {
+        try {
+            const vendorId = new mongoose.Types.ObjectId(req.user?.id);
+            const { page = 1, limit = 10, startDate, endDate } = req.query;
+
+            const start = startDate ? new Date(startDate) : new Date("2000-01-01");
+            const end = endDate ? new Date(endDate) : new Date();
+
+            const pipeline = [
+                {
+                    $match: {
+                        "createdAt": { $gte: start, $lte: end },
+                        "isDeleted": false
+                    }
+                },
+                { $unwind: "$products" },
+                {
+                    $match: {
+                        "products.owner": vendorId
+                    }
+                },
+                {
+                    $group: {
+                        _id: "$_id",
+                        customer: { $first: "$customer" },
+                        referenceWebsite: { $first: "$referenceWebsite" },
+                        totalAmount: { $first: "$totalAmount" },
+                        status: { $first: "$status" },
+                        shippingAddress: { $first: "$shippingAddress" },
+                        paymentStatus: { $first: "$paymentStatus" },
+                        createdAt: { $first: "$createdAt" },
+                        updatedAt: { $first: "$updatedAt" },
+                        products: { $push: "$products" }
+                    }
+                },
+                { $sort: { createdAt: -1 } },
+                { $skip: (page - 1) * limit },
+                { $limit: parseInt(limit) }
+            ];
+
+
+            const orders = await Order.aggregate(pipeline);
+
+            const totalOrders = await Order.countDocuments({
+                "products.owner": vendorId,
+                "createdAt": { $gte: start, $lte: end },
+                "isDeleted": false
+            });
+
+            res.json({
+                totalOrders,
+                totalPages: Math.ceil(totalOrders / limit),
+                currentPage: parseInt(page),
+                orders
+            });
+        } catch (error) {
+            console.error("Error in getVendorOrders:", error);
+            res.status(500).json({ message: "Internal Server Error" });
+        }
+    }
 }

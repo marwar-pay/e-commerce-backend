@@ -39,7 +39,7 @@ export const createMultipleProducts = async (req, res) => {
             return res.status(400).json({ message: "Invalid input. Please provide an array of products." });
         }
         const formattedProducts = products.map(product => ({
-            referenceWebsite: "6788b0054c4a217090bf6636", 
+            referenceWebsite: "6788b0054c4a217090bf6636",
             productName: product.productName,
             images: typeof product.images === "string" ? [product.images] : [],
             price: product.price,
@@ -69,11 +69,12 @@ export const getProducts = async (req, res) => {
             minPrice,
             maxPrice,
             minDiscount = 0,
-            maxDiscount=100,
+            maxDiscount = 100,
             sortBy = 'createdAt',
             sortOrder = 'desc',
             page = 1,
             limit = 10,
+            vendorId
         } = req.query;
 
         if (!referenceWebsite) {
@@ -87,7 +88,12 @@ export const getProducts = async (req, res) => {
         const role = req.user?.role;
 
         // Build the match stage for filtering
-        const matchStage = { referenceWebsite: new mongoose.Types.ObjectId(referenceWebsite) };
+        const matchStage = {};
+        if (vendorId) {
+            matchStage.addedBy = new mongoose.Types.ObjectId(vendorId);
+        } else {
+            matchStage.referenceWebsite = new mongoose.Types.ObjectId(referenceWebsite);
+        }
 
         if (category) {
             matchStage.category = new mongoose.Types.ObjectId(category);

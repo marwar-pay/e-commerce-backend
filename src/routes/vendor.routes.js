@@ -18,4 +18,6 @@ routes.route("/vendor-login").post(Vendors.vendorLogin);
 
 routes.route("/vendor-info").get(isAdmin, Vendors.getVendorById);
 
+routes.route("/vendor-orders").get(isAdmin, Vendors.getVendorOrders);
+
 export default routes;
