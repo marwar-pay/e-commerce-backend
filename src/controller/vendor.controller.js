@@ -308,12 +308,20 @@ export class VendorController {
                     }
                 },
                 {
-                    $addFields: {
-                        firstName: {
-                            $arrayElemAt: ["$customerDetails.firstName", 0]
+                    "$addFields": {
+                        "customer": {
+                            "$mergeObjects": [
+                                {
+                                    "firstName": { "$arrayElemAt": ["$customerDetails.firstName", 0] },
+                                    "lastName": { "$arrayElemAt": ["$customerDetails.lastName", 0] },
+                                    "email": { "$arrayElemAt": ["$customerDetails.email", 0] },
+                                    "_id": { "$arrayElemAt": ["$customerDetails._id", 0] },
+                                }
+                            ]
                         }
                     }
-                },
+                }
+                ,
                 {
                     $project: {
                         customerDetails: 0
