@@ -319,7 +319,6 @@ export class VendorController {
                         customerDetails: 0
                     }
                 },
-                // Lookup product details
                 {
                     $lookup: {
                         from: "products",
@@ -328,24 +327,23 @@ export class VendorController {
                         as: "productDetails"
                     }
                 },
-                // Merge product details with products array
                 {
-                    $addFields: {
-                        products: {
-                            $map: {
-                                input: "$products",
-                                as: "prod",
-                                in: {
-                                    $mergeObjects: [
+                    "$addFields": {
+                        "products": {
+                            "$map": {
+                                "input": "$products",
+                                "as": "prod",
+                                "in": {
+                                    "$mergeObjects": [
                                         "$$prod",
                                         {
-                                            productName: {
-                                                $arrayElemAt: [
+                                            "product": {
+                                                "$arrayElemAt": [
                                                     {
-                                                        $filter: {
-                                                            input: "$productDetails",
-                                                            as: "pd",
-                                                            cond: { $eq: ["$$pd._id", "$$prod.product"] }
+                                                        "$filter": {
+                                                            "input": "$productDetails",
+                                                            "as": "pd",
+                                                            "cond": { "$eq": ["$$pd._id", "$$prod.product"] }
                                                         }
                                                     },
                                                     0
