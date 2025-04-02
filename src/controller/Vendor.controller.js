@@ -140,10 +140,55 @@ export class VendorController {
                 }
             ];
 
+            const categoriesPipeline = [
+                {
+                    "$match": {
+                        "addedBy": new mongoose.Types.ObjectId(vendorId) // Replace with vendor's ID
+                    }
+                },
+                {
+                    "$lookup": {
+                        "from": "productcategories",
+                        "localField": "category",
+                        "foreignField": "_id",
+                        "as": "categoryDetails"
+                    }
+                },
+                {
+                    "$unwind": "$categoryDetails"
+                },
+                {
+                    "$group": {
+                        "_id": "$categoryDetails.name",
+                        "count": { "$sum": 1 }
+                    }
+                },
+                {
+                    "$group": {
+                        "_id": null,
+                        "categoryCounts": {
+                            "$push": {
+                                "k": "$_id",
+                                "v": "$count"
+                            }
+                        }
+                    }
+                },
+                {
+                    "$project": {
+                        "_id": 0,
+                        "categoryCounts": { "$arrayToObject": "$categoryCounts" }
+                    }
+                }
+            ]
+
+
             const data = await Order.aggregate(pipeline);
+            const categoriesData = await Product.aggregate(categoriesPipeline);
             const totalProducts = await Product.countDocuments({ addedBy: vendorId })
             const stats = data.length > 0 ? data[0] : {};
             stats.totalProducts = totalProducts;
+            stats.categories = categoriesData.length > 0 ? categoriesData[0].categoryCounts : {};
             res.json({ vendor, stats });
         } catch (error) {
             console.error("Vendor.controller.js:119 ~ VendorController ~ getVendorById ~ error:", error);
@@ -160,15 +205,11 @@ export class VendorController {
 
             const pipeline = [
                 {
-                    $match: {
-                        "createdAt": { $gte: start, $lte: end },
-                        "isDeleted": false
-                    }
+                    $unwind: "$products"
                 },
-                { $unwind: "$products" },
                 {
                     $match: {
-                        "products.owner": vendorId
+                        "products.owner": new mongoose.Types.ObjectId(vendorId)
                     }
                 },
                 {
@@ -185,9 +226,87 @@ export class VendorController {
                         products: { $push: "$products" }
                     }
                 },
-                { $sort: { createdAt: -1 } },
-                { $skip: (page - 1) * limit },
-                { $limit: parseInt(limit) }
+                // Lookup user details
+                {
+                    $lookup: {
+                        from: "users",
+                        localField: "customer",
+                        foreignField: "_id",
+                        as: "customerDetails"
+                    }
+                },
+                {
+                    $addFields: {
+                        firstName: {
+                            $arrayElemAt: ["$customerDetails.firstName", 0]
+                        }
+                    }
+                },
+                {
+                    $project: {
+                        customerDetails: 0
+                    }
+                },
+                // Lookup product details
+                {
+                    $lookup: {
+                        from: "products",
+                        localField: "products.product",
+                        foreignField: "_id",
+                        as: "productDetails"
+                    }
+                },
+                // Merge product details with products array
+                {
+                    $addFields: {
+                        products: {
+                            $map: {
+                                input: "$products",
+                                as: "prod",
+                                in: {
+                                    $mergeObjects: [
+                                        "$$prod",
+                                        {
+                                            productName: {
+                                                $arrayElemAt: [
+                                                    {
+                                                        $filter: {
+                                                            input: "$productDetails",
+                                                            as: "pd",
+                                                            cond: { $eq: ["$$pd._id", "$$prod.product"] }
+                                                        }
+                                                    },
+                                                    0
+                                                ]
+                                            }
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                },
+                // Remove the full productDetails array
+                {
+                    $project: {
+                        productDetails: 0
+                    }
+                },
+                // Project out unwanted fields from productName
+                {
+                    $project: {
+                        "products.productName.images": 0,
+                        "products.productName.actualPrice": 0,
+                        "products.productName.size": 0,
+                        "products.productName.discount": 0,
+                        "products.productName.addedBy": 0,
+                        "products.productName.createdAt": 0,
+                        "products.productName.updatedAt": 0,
+                        "products.productName.__v": 0,
+                        "products.productName.referenceWebsite": 0,
+                        "products.productName.category": 0
+                    }
+                }
             ];
 
 
@@ -251,5 +370,4 @@ export class VendorController {
             res.status(500).json({ message: "Internal Server Error" });
         }
     }
-
 }
