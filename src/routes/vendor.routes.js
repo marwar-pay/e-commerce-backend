@@ -20,4 +20,6 @@ routes.route("/vendor-info").get(isAdmin, Vendors.getVendorById);
 
 routes.route("/vendor-orders").get(isAdmin, Vendors.getVendorOrders);
 
+routes.route("/vendor-wallet").get(isAdmin, Vendors.getVendorWallet);
+
 export default routes;

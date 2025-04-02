@@ -210,4 +210,46 @@ export class VendorController {
             res.status(500).json({ message: "Internal Server Error" });
         }
     }
+    static async getVendorWallet(req, res) {
+        try {
+            const vendorId = req.user?.id;
+            if (!vendorId) {
+                return res.status(400).json({ message: "Vendor ID is required" });
+            }
+
+            const { page = 1, limit = 10, startDate, endDate } = req.query;
+
+            const start = startDate ? new Date(startDate) : new Date("2000-01-01");
+            const end = endDate ? new Date(endDate) : new Date();
+
+            const pipeline = [
+                { $unwind: "$products" },
+                {
+                    $match: {
+                        "products.owner": new mongoose.Types.ObjectId(vendorId),
+                        "isDeleted": false,
+                        "paymentStatus": "completed",
+                        "createdAt": { $gte: start, $lte: end }
+                    }
+                },
+                {
+                    $group: {
+                        _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } }, // Group by date only
+                        totalAmount: { $sum: "$products.total" }, // Sum total per date
+                        orderIds: { $push: "$_id" } // Optional: Store order IDs for reference
+                    }
+                },
+                { $sort: { _id: -1 } }, // Sort by date (latest first)
+                { $skip: (parseInt(page) - 1) * parseInt(limit) }, // Pagination: skip
+                { $limit: parseInt(limit) } // Pagination: limit
+            ];
+
+            const data = await Order.aggregate(pipeline);
+            res.json({ success: true, data, page: parseInt(page), limit: parseInt(limit) });
+        } catch (error) {
+            console.error("Error in getVendorWallet:", error);
+            res.status(500).json({ message: "Internal Server Error" });
+        }
+    }
+
 }
