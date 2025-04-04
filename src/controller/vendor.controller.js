@@ -78,11 +78,11 @@ export class VendorController {
 
     static async vendorLogin(req, res) {
         try {
-            const { username, password } = req.body;
+            const { username, password, referenceWebsite } = req.body;
             if (!username || !password) {
                 return res.status(400).json({ message: "Username and password are required" });
             }
-            const vendor = await Vendor.findOne({ username });
+            const vendor = await Vendor.findOne({ username, referenceWebsite: new mongoose.Types.ObjectId(referenceWebsite) });
 
             if (!vendor) {
                 return res.status(404).json({ message: "Vendor not found" });
@@ -94,7 +94,7 @@ export class VendorController {
 
             const token = vendor.createAccessToken();
 
-            const { password: pass, __v, createdAt, referenceWebsite: refWeb, updatedAt, ...vendorData } = vendor.toObject();
+            const { password: pass, __v, createdAt, updatedAt, ...vendorData } = vendor.toObject();
 
             vendorData.password = undefined;
             vendorData.token = token;
@@ -320,8 +320,7 @@ export class VendorController {
                             ]
                         }
                     }
-                }
-                ,
+                },
                 {
                     $project: {
                         customerDetails: 0
