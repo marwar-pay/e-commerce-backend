@@ -5,7 +5,7 @@ const productSchema = new mongoose.Schema(
     referenceWebsite: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Websitelist",
-      // required: true,
+      required: true,
     },
     productName: {
       type: String,

@@ -9,8 +9,9 @@ import authRoutes from "./src/routes/auth.routes.js";
 import productRoutes from "./src/routes/product.routes.js";
 import websiteRoutes from "./src/routes/website.routes.js";
 import cartRoutes from "./src/routes/cart.routes.js";
-import catergoriesRoutes from "./src/routes/category.routes.js"
-import policyRoutes from "./src/routes/policy.routes.js"
+import catergoriesRoutes from "./src/routes/category.routes.js";
+import policyRoutes from "./src/routes/policy.routes.js";
+import bannerRoutes from "./src/routes/banner.routes.js";
 
 import { phonePeController } from "./src/routes/payment.routes.js";
 import { getDashboardData } from "./src/routes/dashboard.routes.js";
@@ -29,28 +30,30 @@ const PORT = process.env.PORT || 8080;
 app.use(cors());
 app.use(cookieParser());
 app.use(express.json({ limit: "10mb" }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
-app.use('/uploads', express.static(path.join(__dirname, './src/uploads')));
+app.use(express.urlencoded({ extended: true, limit: "10mb" }));
+app.use("/uploads", express.static(path.join(__dirname, "./src/uploads")));
 
 app.use("/api/auth", authRoutes);
 app.use("/api/website", websiteRoutes);
 app.use("/api/cart", cartRoutes);
-app.use('/api/categories', catergoriesRoutes);
+app.use("/api/categories", catergoriesRoutes);
 app.use("/api/product", productRoutes);
 app.use("/api/order", orderRoutes);
-app.use("/api/policy",policyRoutes)
+app.use("/api/policy", policyRoutes);
 
-app.post("/api/phonepe-payment", phonePeController)
-app.get("/api/dashboard", isAdmin, getDashboardData)
-app.use("/api", vendorRoutes)
+app.post("/api/phonepe-payment", phonePeController);
+app.get("/api/dashboard", isAdmin, getDashboardData);
+app.use("/api", vendorRoutes);
+
+app.use("/api/banner", bannerRoutes);
 
 // 67888fb90e1c6b678401302d
 
 DBConnection();
 
-app.get('/', (req, res) => {
-  res.send('server running well')
-})
+app.get("/", (req, res) => {
+  res.send("server running well");
+});
 
 app.use((err, req, res, next) => {
   console.error("Error occurred: ", err);

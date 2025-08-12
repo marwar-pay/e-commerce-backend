@@ -1,21 +1,28 @@
-import mongoose from 'mongoose';
+import mongoose from "mongoose";
 
 const productCategorySchema = new mongoose.Schema(
-    {
-        name: {
-            type: String,
-            required: [true, 'Category name is required.'],
-            unique: true,
-            trim: true,
-        },
-        description: {
-            type: String,
-            trim: true,
-        }
+  {
+    name: {
+      type: String,
+      required: [true, "Category name is required."],
+      unique: true,
+      trim: true,
     },
-    { timestamps: true }
+    description: {
+      type: String,
+      trim: true,
+    },
+    image: {
+      type: String,
+      required: true,
+    },
+  },
+  { timestamps: true }
 );
 
-const ProductCategory = mongoose.model('ProductCategory', productCategorySchema);
+const ProductCategory = mongoose.model(
+  "ProductCategory",
+  productCategorySchema
+);
 
 export default ProductCategory;
