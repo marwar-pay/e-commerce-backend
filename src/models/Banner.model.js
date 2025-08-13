@@ -14,6 +14,11 @@ const bannerSchema = new mongoose.Schema({
     required: true,
     enum: ["home", "about", "products", "order-history", "contact-us"],
   },
+  referenceWebsite: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Websitelist",
+    required: true,
+  },
 });
 
 const Banner = mongoose.model("Banner", bannerSchema);

@@ -3,8 +3,8 @@ import { uploadToCloudinary } from "../helper/cloudinary.js";
 
 export const createBanner = async (req, res) => {
   try {
-    const { altText, page } = req.body;
-    if (!altText || !page) {
+    const { altText, page, referenceWebsite } = req.body;
+    if (!altText || !page || !referenceWebsite) {
       return res.status(400).json({ message: "all fields are required" });
     }
 
@@ -18,7 +18,7 @@ export const createBanner = async (req, res) => {
       return res.status(500).json({ message: "Error uploading image" });
     }
 
-    const newBanner = new Banner({ imageUrl: bannerImage.url, altText, page });
+    const newBanner = new Banner({ imageUrl: bannerImage.url, altText, page, referenceWebsite });
     await newBanner.save();
     res.status(201).json(newBanner);
   } catch (error) {
@@ -62,5 +62,14 @@ export const updateBanner = async (req, res) => {
     res.status(200).json(updatedBanner);
   } catch (error) {
     res.status(500).json({ message: "Error updating banner", error });
+  }
+};
+
+export const getAllBanners = async (req, res) => {
+  try {
+    const banners = await Banner.find();
+    res.status(200).json(banners);
+  } catch (error) {
+    res.status(500).json({ message: "Error fetching banners", error });
   }
 };

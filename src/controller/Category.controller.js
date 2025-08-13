@@ -29,7 +29,7 @@ export const createCategory = async (req, res) => {
       category = new ProductCategory({
         name,
         description,
-        image: categoryImage.url
+        image: categoryImage.url,
       });
       await category.save();
     }
