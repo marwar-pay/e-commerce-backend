@@ -73,3 +73,21 @@ export const getAllBanners = async (req, res) => {
     res.status(500).json({ message: "Error fetching banners", error });
   }
 };
+
+export const deleteBanner = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!id) {
+      return res.status(400).json({ message: "Banner ID is required" });
+    }
+
+    const deletedBanner = await Banner.findByIdAndDelete(id);
+    if (!deletedBanner) {
+      return res.status(404).json({ message: "Banner not found" });
+    }
+
+    res.status(200).json({ message: "Banner deleted successfully" });
+  } catch (error) {
+    res.status(500).json({ message: "Error deleting banner", error });
+  }
+};
