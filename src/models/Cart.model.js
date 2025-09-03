@@ -11,10 +11,11 @@ const cartItemSchema = new mongoose.Schema({
         required: true,
         min: 1,
     },
-    price: {
+    actualPrice: {
         type: Number,
         required: true,
     },
+    
     total: {
         type: Number,
         required: true,
